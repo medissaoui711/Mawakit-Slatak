@@ -2,11 +2,12 @@
 /* eslint-disable no-restricted-globals */
 
 const CACHE_NAME = 'mawakit-tn-v2';
+// إضافة الأيقونة للقائمة لضمان تحميلها عند التثبيت
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  // في بيئة الإنتاج، سيقوم نظام البناء بتوليد قائمة الملفات
+  'https://cdn-icons-png.flaticon.com/512/2319/2319865.png'
 ];
 
 const APP_LOGO = "https://cdn-icons-png.flaticon.com/512/2319/2319865.png";
@@ -28,7 +29,7 @@ self.addEventListener('install', (event) => {
   
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // محاولة تخزين الملفات الأساسية، وعدم الفشل إذا لم تنجح بعضها
+      // محاولة تخزين الملفات الأساسية
       return cache.addAll(ASSETS_TO_CACHE).catch(err => {
         console.warn('Some assets failed to cache:', err);
       });
@@ -62,8 +63,10 @@ self.addEventListener('fetch', (event) => {
 
   const isExternalResource = EXTERNAL_DOMAINS.some(domain => event.request.url.includes(domain));
   const isInternalResource = event.request.url.startsWith(self.location.origin);
+  // التحقق مما إذا كان الطلب هو للأيقونة تحديداً
+  const isAppIcon = event.request.url === APP_LOGO;
 
-  if (isInternalResource || isExternalResource) {
+  if (isInternalResource || isExternalResource || isAppIcon) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -94,7 +97,6 @@ self.addEventListener('fetch', (event) => {
 });
 
 // 4. الاستماع لرسائل من التطبيق (Message Event)
-// يستخدم هذا لعرض الإشعارات المجدولة محلياً من التطبيق
 self.addEventListener('message', (event) => {
   if (!event.data) return;
 
@@ -102,20 +104,19 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 
-  // عرض إشعار فوري (يأتي الطلب من التطبيق)
   if (event.data.type === 'SHOW_NOTIFICATION') {
     const { title, body, icon } = event.data.payload;
     const options = {
       body,
       icon: icon || APP_LOGO,
       vibrate: [200, 100, 200],
-      badge: APP_LOGO, // تظهر في شريط الحالة في أندرويد
+      badge: APP_LOGO,
       dir: 'rtl',
       lang: 'ar-TN',
-      tag: 'prayer-notification', // يمنع تكرار نفس الإشعار
+      tag: 'prayer-notification',
       renotify: true,
       data: {
-        url: self.location.origin // رابط لفتحه عند النقر
+        url: self.location.origin
       }
     };
 
@@ -125,7 +126,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// 5. التعامل مع إشعارات Push (من الخادم - Future Proofing)
+// 5. التعامل مع إشعارات Push
 self.addEventListener('push', (event) => {
   let data = {};
   if (event.data) {
@@ -154,17 +155,13 @@ self.addEventListener('push', (event) => {
 // 6. التعامل مع النقر على الإشعار
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  // فتح التطبيق أو التركيز عليه إذا كان مفتوحاً
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // إذا كان هناك نافذة مفتوحة، ركز عليها
       for (const client of clientList) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }
-      // إذا لم يكن مفتوحاً، افتح نافذة جديدة
       if (self.clients.openWindow) {
         return self.clients.openWindow('/');
       }
