@@ -63,6 +63,16 @@ export interface NotificationSettings {
   };
 }
 
+// إعدادات الإقامة
+export interface IqamaSettings {
+  Fajr: number;
+  Dhuhr: number;
+  Asr: number;
+  Maghrib: number;
+  Isha: number;
+  [key: string]: number;
+}
+
 // Calendar API Types
 export interface CalendarData {
   timings: PrayerTimings;

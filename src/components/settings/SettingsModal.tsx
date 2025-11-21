@@ -1,15 +1,15 @@
 
-import React from 'react';
-import { X, Bell, Clock, Volume2, VolumeX } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Bell, Clock, Volume2, VolumeX, Save, RotateCcw, Moon } from 'lucide-react';
 import { usePrayerData } from '../../context/PrayerContext';
 
 const PRAYER_NAMES_AR: { [key: string]: string } = {
-  Fajr: 'صلاة الفجر',
+  Fajr: 'الفجر',
   Sunrise: 'الشروق',
-  Dhuhr: 'صلاة الظهر / الجمعة',
-  Asr: 'صلاة العصر',
-  Maghrib: 'صلاة المغرب',
-  Isha: 'صلاة العشاء',
+  Dhuhr: 'الظهر',
+  Asr: 'العصر',
+  Maghrib: 'المغرب',
+  Isha: 'العشاء',
 };
 
 const PRE_ADHAN_OPTIONS = [0, 5, 10, 15, 20, 30];
@@ -18,8 +18,11 @@ const SettingsModal: React.FC = () => {
   const { 
     isSettingsOpen, setIsSettingsOpen, 
     settings, updateGlobalEnabled, updatePrayerSetting,
-    notificationsEnabled, requestPermission
+    notificationsEnabled, requestPermission,
+    iqamaSettings, updateIqamaTime, resetIqamaDefaults, applyRamadanIqama
   } = usePrayerData();
+
+  const [activeTab, setActiveTab] = useState<'notifications' | 'iqama'>('notifications');
 
   if (!isSettingsOpen) return null;
 
@@ -32,14 +35,11 @@ const SettingsModal: React.FC = () => {
       />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="bg-red-900 dark:bg-slate-900 p-4 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2">
-            <Bell className="text-yellow-400" size={20} />
-            <h2 className="text-lg font-bold">إعدادات التنبيهات</h2>
-          </div>
+        <div className="bg-red-900 dark:bg-slate-900 p-4 flex justify-between items-center text-white shrink-0">
+          <h2 className="text-lg font-bold">الإعدادات</h2>
           <button 
             onClick={() => setIsSettingsOpen(false)}
             className="p-1 hover:bg-white/10 rounded-full transition-colors"
@@ -48,99 +48,142 @@ const SettingsModal: React.FC = () => {
           </button>
         </div>
 
-        <div className="p-4 max-h-[70vh] overflow-y-auto">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-slate-700 shrink-0">
+          <button 
+            onClick={() => setActiveTab('notifications')}
+            className={`flex-1 py-3 text-sm font-bold transition-colors ${
+              activeTab === 'notifications' 
+                ? 'text-red-800 dark:text-red-400 border-b-2 border-red-800 dark:border-red-400 bg-red-50 dark:bg-red-900/10' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            التنبيهات
+          </button>
+          <button 
+            onClick={() => setActiveTab('iqama')}
+            className={`flex-1 py-3 text-sm font-bold transition-colors ${
+              activeTab === 'iqama' 
+                ? 'text-red-800 dark:text-red-400 border-b-2 border-red-800 dark:border-red-400 bg-red-50 dark:bg-red-900/10' 
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            وقت الإقامة
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="p-4 overflow-y-auto flex-1">
           
-          {/* Browser Permission Status */}
-          {!notificationsEnabled && (
-            <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg flex items-center justify-between text-sm">
-              <span>يجب السماح بالإشعارات من المتصفح</span>
-              <button 
-                onClick={requestPermission}
-                className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition"
-              >
-                تفعيل
-              </button>
+          {/* === Notification Settings === */}
+          {activeTab === 'notifications' && (
+            <>
+              {!notificationsEnabled && (
+                <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-lg flex items-center justify-between text-sm">
+                  <span>يجب السماح بالإشعارات</span>
+                  <button onClick={requestPermission} className="px-3 py-1 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 text-xs font-bold">تفعيل</button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mb-4 p-3 bg-gray-100 dark:bg-slate-700/50 rounded-xl">
+                <span className="font-bold text-gray-800 dark:text-gray-100">تفعيل التنبيهات العامة</span>
+                <button
+                  onClick={() => updateGlobalEnabled(!settings.globalEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.globalEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${settings.globalEnabled ? 'translate-x-1' : 'translate-x-6'}`} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {Object.keys(PRAYER_NAMES_AR).map((prayer) => {
+                  const setting = settings.prayers[prayer];
+                  return (
+                    <div key={prayer} className={`p-3 rounded-xl border flex flex-col gap-2 ${setting.enabled && settings.globalEnabled ? 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800' : 'border-transparent bg-gray-50 dark:bg-slate-900 opacity-70'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => updatePrayerSetting(prayer, 'enabled', !setting.enabled)} className={`p-1.5 rounded-full ${setting.enabled ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-gray-400'}`}>
+                            {setting.enabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                          </button>
+                          <span className="font-medium text-gray-800 dark:text-gray-200">{PRAYER_NAMES_AR[prayer]}</span>
+                        </div>
+                      </div>
+                      {setting.enabled && (
+                        <div className="flex items-center justify-between px-1">
+                           <span className="text-xs text-gray-500">التنبيه قبل:</span>
+                           <select
+                             value={setting.preAdhanMinutes}
+                             onChange={(e) => updatePrayerSetting(prayer, 'preAdhanMinutes', Number(e.target.value))}
+                             className="bg-gray-100 dark:bg-slate-700 border-none rounded text-xs py-1 pr-6 pl-2 cursor-pointer"
+                             dir="rtl"
+                           >
+                             {PRE_ADHAN_OPTIONS.map(opt => (
+                               <option key={opt} value={opt}>{opt === 0 ? 'وقت الأذان' : `${opt} دقيقة`}</option>
+                             ))}
+                           </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* === Iqama Settings === */}
+          {activeTab === 'iqama' && (
+            <div className="space-y-4">
+               <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-xs text-blue-800 dark:text-blue-200 mb-4">
+                 يمكنك ضبط الوقت الفاصل بين الأذان والإقامة (بالدقائق) لكل صلاة.
+               </div>
+
+               {/* Presets */}
+               <div className="grid grid-cols-2 gap-2 mb-4">
+                 <button 
+                   onClick={resetIqamaDefaults}
+                   className="flex items-center justify-center gap-2 p-2 rounded-lg bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 text-xs font-bold text-gray-600 dark:text-gray-300"
+                 >
+                   <RotateCcw size={14} /> الوضع الافتراضي
+                 </button>
+                 <button 
+                   onClick={applyRamadanIqama}
+                   className="flex items-center justify-center gap-2 p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 text-xs font-bold text-indigo-700 dark:text-indigo-300"
+                 >
+                   <Moon size={14} /> توقيت رمضان
+                 </button>
+               </div>
+
+               {/* Inputs */}
+               <div className="space-y-2">
+                  {['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'].map((prayer) => (
+                    <div key={prayer} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl">
+                       <span className="font-medium text-gray-700 dark:text-gray-200">{PRAYER_NAMES_AR[prayer]}</span>
+                       <div className="flex items-center gap-2">
+                         <input 
+                           type="number" 
+                           min="0" 
+                           max="60"
+                           value={iqamaSettings[prayer]}
+                           onChange={(e) => updateIqamaTime(prayer, Math.max(0, parseInt(e.target.value) || 0))}
+                           className="w-16 text-center p-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg font-bold text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
+                         />
+                         <span className="text-xs text-gray-400">دقيقة</span>
+                       </div>
+                    </div>
+                  ))}
+               </div>
             </div>
           )}
 
-          {/* Global Toggle */}
-          <div className="flex items-center justify-between mb-6 p-3 bg-gray-100 dark:bg-slate-700/50 rounded-xl">
-            <span className="font-bold text-gray-800 dark:text-gray-100">تفعيل التنبيهات</span>
-            <button
-              onClick={() => updateGlobalEnabled(!settings.globalEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
-                settings.globalEnabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                  settings.globalEnabled ? 'translate-x-1' : 'translate-x-6'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Prayers List */}
-          <div className="space-y-3">
-            {Object.keys(PRAYER_NAMES_AR).map((prayer) => {
-              const setting = settings.prayers[prayer];
-              const isEnabled = setting.enabled && settings.globalEnabled;
-
-              return (
-                <div 
-                  key={prayer} 
-                  className={`p-3 rounded-xl border transition-colors ${
-                    isEnabled 
-                      ? 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800' 
-                      : 'border-transparent bg-gray-50 dark:bg-slate-900 opacity-60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                       <button
-                         onClick={() => updatePrayerSetting(prayer, 'enabled', !setting.enabled)}
-                         className={`p-2 rounded-full transition-colors ${
-                            setting.enabled ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-gray-400'
-                         }`}
-                       >
-                         {setting.enabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-                       </button>
-                       <span className="font-medium text-gray-800 dark:text-gray-200">
-                         {PRAYER_NAMES_AR[prayer]}
-                       </span>
-                    </div>
-                  </div>
-
-                  {/* Pre-Notification Select */}
-                  {setting.enabled && (
-                    <div className="mr-11 flex items-center gap-2 text-sm">
-                      <Clock size={14} className="text-gray-400" />
-                      <span className="text-gray-500 dark:text-gray-400">التنبيه قبل:</span>
-                      <select
-                        value={setting.preAdhanMinutes}
-                        onChange={(e) => updatePrayerSetting(prayer, 'preAdhanMinutes', Number(e.target.value))}
-                        className="bg-gray-100 dark:bg-slate-700 border-none rounded-md text-gray-700 dark:text-gray-200 text-xs py-1 pr-6 pl-2 focus:ring-1 focus:ring-red-500 cursor-pointer"
-                        dir="rtl"
-                      >
-                        {PRE_ADHAN_OPTIONS.map(opt => (
-                          <option key={opt} value={opt}>
-                            {opt === 0 ? 'عند الأذان فقط' : `${opt} دقائق`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
 
-        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 text-center">
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 shrink-0">
           <button 
             onClick={() => setIsSettingsOpen(false)}
-            className="w-full py-2 bg-red-900 hover:bg-red-800 text-white rounded-lg font-medium transition-colors"
+            className="w-full py-2.5 bg-red-900 hover:bg-red-800 text-white rounded-xl font-bold shadow-lg transition-colors flex items-center justify-center gap-2"
           >
+            <Save size={18} />
             حفظ وإغلاق
           </button>
         </div>

@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { RefreshCw, Moon, Sun, Clock, Settings, ChevronDown } from 'lucide-react';
+import { RefreshCw, Moon, Sun, Clock, Settings, ChevronDown, Compass } from 'lucide-react';
 import { CITIES } from '../../constants/data';
 import { usePrayerData } from '../../context/PrayerContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,7 +11,8 @@ const Header: React.FC = () => {
   const { 
     selectedCity, setSelectedCity, 
     loading, refetch, 
-    hijriDate, setIsSettingsOpen
+    hijriDate, setIsSettingsOpen,
+    setIsQiblaOpen // New Context Method
   } = usePrayerData();
   
   const { isDark, toggleDarkMode } = useTheme();
@@ -29,6 +31,16 @@ const Header: React.FC = () => {
       >
          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
       </button>
+      
+      {/* Qibla Button */}
+      <button
+        onClick={() => setIsQiblaOpen(true)}
+        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
+        aria-label="القبلة"
+      >
+        <Compass size={20} />
+      </button>
+
       <button
         onClick={() => setIsSettingsOpen(true)}
         className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"

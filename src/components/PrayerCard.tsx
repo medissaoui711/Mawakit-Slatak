@@ -7,7 +7,7 @@ import Tooltip from './common/Tooltip';
 interface PrayerCardProps {
   name: string;
   time: string;
-  iqamaOffset: string;
+  iqamaOffset: number; // Changed from string to number
   isNext?: boolean;
 }
 
@@ -15,6 +15,17 @@ const PrayerCard: React.FC<PrayerCardProps> = ({ name, time, iqamaOffset, isNext
   const cleanTime = time.split(' ')[0];
   const formattedTime = formatTime12Hour(cleanTime);
   const { connectionQuality, inputType } = useDevice();
+
+  // حساب وقت الإقامة
+  const calculateIqamaTime = () => {
+    if (iqamaOffset === 0) return null;
+    const [h, m] = cleanTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m + iqamaOffset);
+    return formatTime12Hour(`${date.getHours()}:${date.getMinutes()}`);
+  };
+
+  const iqamaTime = calculateIqamaTime();
 
   const content = (
     <div className="cq-container h-full w-full group cursor-default">
@@ -37,9 +48,8 @@ const PrayerCard: React.FC<PrayerCardProps> = ({ name, time, iqamaOffset, isNext
           <div className="absolute top-0 inset-x-0 h-1.5 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]"></div>
         )}
 
-        {/* Background Icon (Faint) */}
+        {/* Background Icon */}
         <div className="absolute right-2 bottom-2 opacity-[0.03] dark:opacity-[0.05] transform rotate-12 scale-150 pointer-events-none">
-           {/* Could dynamically add icon based on prayer name */}
            <svg width="40" height="40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
         </div>
 
@@ -60,22 +70,26 @@ const PrayerCard: React.FC<PrayerCardProps> = ({ name, time, iqamaOffset, isNext
           {formattedTime}
         </span>
         
-        <div className={`
-          cq-iqama-badge
-          flex items-center justify-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full dir-ltr z-10
-          ${isNext ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}
-        `}>
-          <span>+{iqamaOffset.replace('+', '')}</span>
-          <span className="opacity-70">min</span>
-        </div>
+        {iqamaOffset > 0 ? (
+          <div className={`
+            cq-iqama-badge
+            flex items-center justify-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full dir-ltr z-10
+            ${isNext ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400'}
+          `}>
+            <span>+{iqamaOffset}</span>
+            <span className="opacity-70">د</span>
+          </div>
+        ) : (
+          <div className="h-4 w-full"></div> // Spacer
+        )}
       </div>
     </div>
   );
 
-  // On desktop, wrap in tooltip showing full prayer info or Iqama time detail
-  if (inputType === 'mouse') {
+  // On desktop, tooltip shows exact Iqama time
+  if (inputType === 'mouse' && iqamaTime) {
     return (
-      <Tooltip content={`الإقامة بعد ${iqamaOffset} دقيقة`}>
+      <Tooltip content={`تقام الصلاة الساعة ${iqamaTime}`}>
         {content}
       </Tooltip>
     );

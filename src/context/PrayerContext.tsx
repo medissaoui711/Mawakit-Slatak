@@ -1,11 +1,12 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
-import { CityOption, PrayerTimings, NotificationSettings } from '../types';
+import { CityOption, PrayerTimings, NotificationSettings, IqamaSettings } from '../types';
 import { CITIES } from '../constants/data';
 import { usePrayerTimes } from '../hooks/usePrayerTimes';
 import { useCountdown } from '../hooks/useCountdown';
 import { useAdhanNotification } from '../hooks/useAdhanNotification';
 import { useNotificationSettings } from '../hooks/useNotificationSettings';
+import { useIqamaSettings } from '../hooks/useIqamaSettings';
 import { ADHAN_AUDIO_URL } from '../constants/data';
 
 interface PrayerContextType {
@@ -35,6 +36,16 @@ interface PrayerContextType {
   updatePrayerSetting: (prayer: string, field: 'enabled' | 'preAdhanMinutes', value: any) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (val: boolean) => void;
+
+  // Iqama Settings
+  iqamaSettings: IqamaSettings;
+  updateIqamaTime: (prayer: string, minutes: number) => void;
+  resetIqamaDefaults: () => void;
+  applyRamadanIqama: () => void;
+  
+  // Qibla Modal Control
+  isQiblaOpen: boolean;
+  setIsQiblaOpen: (val: boolean) => void;
 }
 
 const PrayerContext = createContext<PrayerContextType | undefined>(undefined);
@@ -42,19 +53,21 @@ const PrayerContext = createContext<PrayerContextType | undefined>(undefined);
 export const PrayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [selectedCity, setSelectedCity] = useState<CityOption>(CITIES[0]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isQiblaOpen, setIsQiblaOpen] = useState(false);
   
   // 1. Data Hooks
   const { timings, hijriDate, loading, error, isOffline, isStale, refetch } = usePrayerTimes(selectedCity);
   const { nextPrayer, nextPrayerEn, countdown, isUrgent } = useCountdown(timings);
   
-  // 2. Settings Hook
+  // 2. Settings Hooks
   const { settings, updateGlobalEnabled, updatePrayerSetting } = useNotificationSettings();
+  const { iqamaSettings, updateIqamaTime, resetToDefaults, applyRamadanPreset } = useIqamaSettings();
 
-  // 3. Notification Logic (Consumes settings)
+  // 3. Notification Logic
   const { notificationsEnabled, requestPermission, enableAudio, audioUnlocked } = useAdhanNotification(
     timings, 
     ADHAN_AUDIO_URL,
-    settings // Pass settings to logic
+    settings
   );
 
   const value = useMemo(() => ({
@@ -79,11 +92,20 @@ export const PrayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     updateGlobalEnabled,
     updatePrayerSetting,
     isSettingsOpen,
-    setIsSettingsOpen
+    setIsSettingsOpen,
+    // New Iqama Props
+    iqamaSettings,
+    updateIqamaTime,
+    resetIqamaDefaults: resetToDefaults,
+    applyRamadanIqama: applyRamadanPreset,
+    // New Qibla Props
+    isQiblaOpen,
+    setIsQiblaOpen
   }), [
     selectedCity, timings, hijriDate, loading, error, isOffline, isStale, 
     nextPrayer, nextPrayerEn, countdown, isUrgent, 
-    notificationsEnabled, audioUnlocked, settings, isSettingsOpen
+    notificationsEnabled, audioUnlocked, settings, isSettingsOpen,
+    iqamaSettings, isQiblaOpen
   ]);
 
   return (

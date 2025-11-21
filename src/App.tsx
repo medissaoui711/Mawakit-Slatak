@@ -1,9 +1,11 @@
+
 import React, { useEffect } from 'react';
 import Header from './components/layout/Header';
 import PrayerCard from './components/PrayerCard';
 import CountdownTimer from './components/CountdownTimer';
 import StatusBanner from './components/common/StatusBanner';
 import SettingsModal from './components/settings/SettingsModal';
+import QiblaCompass from './components/QiblaCompass'; // Import Qibla Component
 import InstallPrompt from './components/common/InstallPrompt';
 import WeeklySchedule from './components/desktop/WeeklySchedule';
 import DayTimeline from './components/desktop/DayTimeline';
@@ -11,7 +13,7 @@ import DayTimeline from './components/desktop/DayTimeline';
 import { PrayerProvider, usePrayerData } from './context/PrayerContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { DeviceProvider, useDevice } from './context/DeviceContext';
-import { IQAMA_OFFSETS, CITIES } from './constants/data';
+import { CITIES } from './constants/data'; // Removed hardcoded IQAMA_OFFSETS
 import { useSwipe } from './hooks/useSwipe';
 import { useViewportHeight } from './hooks/useViewportHeight';
 import { useWeeklySchedule } from './hooks/useWeeklySchedule';
@@ -23,7 +25,9 @@ const AppContent: React.FC = () => {
     timings, loading, error, 
     nextPrayerEn, countdown, isUrgent,
     requestPermission, enableAudio, audioUnlocked,
-    selectedCity, setSelectedCity, setIsSettingsOpen
+    selectedCity, setSelectedCity, setIsSettingsOpen,
+    iqamaSettings, // Use dynamic settings
+    isQiblaOpen, setIsQiblaOpen
   } = usePrayerData();
 
   const { toggleDarkMode } = useTheme();
@@ -71,6 +75,8 @@ const AppContent: React.FC = () => {
     >
       <StatusBanner />
       <SettingsModal />
+      {/* Render Qibla Compass */}
+      <QiblaCompass isOpen={isQiblaOpen} onClose={() => setIsQiblaOpen(false)} />
       <InstallPrompt />
 
       {/* Responsive Layout Strategy */}
@@ -109,12 +115,12 @@ const AppContent: React.FC = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                  {/* Prayer Cards Wrapper - Grid with rounded corners */}
                  <div className="col-span-2 md:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-px bg-gray-200 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5 hardware-accelerated">
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الفجر" time={timings.Fajr} iqamaOffset={IQAMA_OFFSETS.Fajr} isNext={nextPrayerEn === 'Fajr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الشروق" time={timings.Sunrise} iqamaOffset={IQAMA_OFFSETS.Sunrise} isNext={nextPrayerEn === 'Sunrise'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الظهر" time={timings.Dhuhr} iqamaOffset={IQAMA_OFFSETS.Dhuhr} isNext={nextPrayerEn === 'Dhuhr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العصر" time={timings.Asr} iqamaOffset={IQAMA_OFFSETS.Asr} isNext={nextPrayerEn === 'Asr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="المغرب" time={timings.Maghrib} iqamaOffset={IQAMA_OFFSETS.Maghrib} isNext={nextPrayerEn === 'Maghrib'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العشاء" time={timings.Isha} iqamaOffset={IQAMA_OFFSETS.Isha} isNext={nextPrayerEn === 'Isha'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الفجر" time={timings.Fajr} iqamaOffset={iqamaSettings.Fajr} isNext={nextPrayerEn === 'Fajr'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الشروق" time={timings.Sunrise} iqamaOffset={0} isNext={nextPrayerEn === 'Sunrise'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الظهر" time={timings.Dhuhr} iqamaOffset={iqamaSettings.Dhuhr} isNext={nextPrayerEn === 'Dhuhr'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العصر" time={timings.Asr} iqamaOffset={iqamaSettings.Asr} isNext={nextPrayerEn === 'Asr'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="المغرب" time={timings.Maghrib} iqamaOffset={iqamaSettings.Maghrib} isNext={nextPrayerEn === 'Maghrib'} /></div>
+                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العشاء" time={timings.Isha} iqamaOffset={iqamaSettings.Isha} isNext={nextPrayerEn === 'Isha'} /></div>
                  </div>
               </div>
             ) : null}
