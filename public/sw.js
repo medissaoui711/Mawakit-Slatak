@@ -1,3 +1,4 @@
+
 /* eslint-disable no-restricted-globals */
 
 const CACHE_NAME = 'mawakit-tn-v2';
@@ -8,13 +9,16 @@ const ASSETS_TO_CACHE = [
   // في بيئة الإنتاج، سيقوم نظام البناء بتوليد قائمة الملفات
 ];
 
+const APP_LOGO = "https://cdn-icons-png.flaticon.com/512/2319/2319865.png";
+
 // المجالات الخارجية المسموح بتخزينها
 const EXTERNAL_DOMAINS = [
   'cdn.tailwindcss.com',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'aistudiocdn.com',
-  'flagcdn.com'
+  'flagcdn.com',
+  'cdn-icons-png.flaticon.com'
 ];
 
 // 1. التثبيت (Install)
@@ -103,9 +107,9 @@ self.addEventListener('message', (event) => {
     const { title, body, icon } = event.data.payload;
     const options = {
       body,
-      icon: icon || 'https://cdn-icons-png.flaticon.com/512/2319/2319865.png',
+      icon: icon || APP_LOGO,
       vibrate: [200, 100, 200],
-      badge: 'https://cdn-icons-png.flaticon.com/512/2319/2319865.png',
+      badge: APP_LOGO, // تظهر في شريط الحالة في أندرويد
       dir: 'rtl',
       lang: 'ar-TN',
       tag: 'prayer-notification', // يمنع تكرار نفس الإشعار
@@ -134,7 +138,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || 'تنبيه جديد',
-    icon: 'https://cdn-icons-png.flaticon.com/512/2319/2319865.png',
+    icon: APP_LOGO,
+    badge: APP_LOGO,
     vibrate: [100, 50, 100],
     data: {
       url: self.location.origin

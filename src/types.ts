@@ -94,3 +94,10 @@ export interface AlAdhanCalendarResponse {
   code: number;
   data: CalendarData[];
 }
+
+export interface AdhanSound {
+  id: string;
+  name: string;
+  url: string;
+  isFajr?: boolean;
+}

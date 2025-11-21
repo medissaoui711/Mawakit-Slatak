@@ -1,4 +1,6 @@
 
+import { APP_LOGO_URL } from '../constants/data';
+
 /**
  * يتحقق مما إذا كان المتصفح يدعم الإشعارات
  */
@@ -45,7 +47,7 @@ export const sendNotification = async (title: string, body: string, icon?: strin
     return;
   }
 
-  const defaultIcon = 'https://cdn-icons-png.flaticon.com/512/2319/2319865.png'; // أيقونة التطبيق
+  const notificationIcon = icon || APP_LOGO_URL;
 
   try {
     // محاولة الإرسال عبر Service Worker (الأفضل لـ PWA والهواتف)
@@ -59,7 +61,7 @@ export const sendNotification = async (title: string, body: string, icon?: strin
           payload: {
             title,
             body,
-            icon: icon || defaultIcon
+            icon: notificationIcon
           }
         });
         return;
@@ -71,11 +73,11 @@ export const sendNotification = async (title: string, body: string, icon?: strin
     // نستخدم any لأن خاصية vibrate قد لا تكون موجودة في تعريف Typescript القياسي لـ NotificationOptions
     const options: any = {
       body,
-      icon: icon || defaultIcon,
+      icon: notificationIcon,
       dir: 'rtl',
       lang: 'ar-TN',
       vibrate: [200, 100, 200], // نمط الاهتزاز
-      badge: defaultIcon,
+      badge: notificationIcon,
     };
     
     new Notification(title, options);

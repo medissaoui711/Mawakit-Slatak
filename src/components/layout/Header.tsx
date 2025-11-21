@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { RefreshCw, Moon, Sun, Clock, Settings, ChevronDown, Compass } from 'lucide-react';
-import { CITIES } from '../../constants/data';
+import { RefreshCw, Moon, Sun, Settings, ChevronDown, Compass, Calendar } from 'lucide-react';
+import { CITIES, APP_LOGO_URL } from '../../constants/data';
 import { usePrayerData } from '../../context/PrayerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getArabicDateString } from '../../utils';
 import NotificationControl from '../common/NotificationControl';
+import RamadanImsakiya from '../RamadanImsakiya';
 
 const Header: React.FC = () => {
   const { 
@@ -16,6 +17,7 @@ const Header: React.FC = () => {
   } = usePrayerData();
   
   const { isDark, toggleDarkMode } = useTheme();
+  const [isImsakiyaOpen, setIsImsakiyaOpen] = React.useState(false);
 
   const today = new Date();
   const gregorianDateString = getArabicDateString(today);
@@ -32,6 +34,15 @@ const Header: React.FC = () => {
          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
       </button>
       
+      {/* Calendar / Imsakiya Button */}
+      <button
+        onClick={() => setIsImsakiyaOpen(true)}
+        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
+        aria-label="الممسكة"
+      >
+        <Calendar size={20} />
+      </button>
+
       {/* Qibla Button */}
       <button
         onClick={() => setIsQiblaOpen(true)}
@@ -60,15 +71,19 @@ const Header: React.FC = () => {
   );
 
   const LogoCircle = ({ sizeClass = "w-12 h-12 md:w-16 md:h-16" }) => (
-    <div className={`relative ${sizeClass} rounded-full border-2 border-white/20 shadow-2xl overflow-hidden flex items-center justify-center bg-red-900`}>
+    <div className={`relative ${sizeClass} rounded-full border-2 border-white/20 shadow-2xl overflow-hidden flex items-center justify-center bg-red-900 group`}>
         <img 
           src="https://flagcdn.com/tn.svg"
           alt="Tunisia Flag"
-          className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-multiply"
+          className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-multiply"
           // @ts-ignore
           fetchpriority="high"
         />
-        <Clock className="text-white relative z-10 drop-shadow-md" size={24} strokeWidth={2.5} />
+        <img 
+          src={APP_LOGO_URL}
+          alt="Logo"
+          className="relative z-10 w-3/4 h-3/4 object-contain drop-shadow-md group-hover:scale-110 transition-transform duration-500"
+        />
     </div>
   );
 
@@ -104,6 +119,7 @@ const Header: React.FC = () => {
   );
 
   return (
+    <>
     <header className="bg-gradient-to-br from-red-900 via-red-800 to-red-950 dark:from-slate-950 dark:via-slate-900 dark:to-black text-white pb-12 md:pb-16 pt-safe-top px-4 sm:px-8 rounded-b-[2rem] md:rounded-b-[3rem] shadow-2xl transition-all duration-500 relative overflow-hidden">
       
       {/* Decorative Background Pattern */}
@@ -163,6 +179,10 @@ const Header: React.FC = () => {
 
       </div>
     </header>
+    
+    {/* Imsakiya Modal */}
+    <RamadanImsakiya isOpen={isImsakiyaOpen} onClose={() => setIsImsakiyaOpen(false)} />
+    </>
   );
 };
 
