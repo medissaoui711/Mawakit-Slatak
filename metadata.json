@@ -1,0 +1,7 @@
+{
+  "name": "Mawakit Tunisia",
+  "description": "Tunisian Prayer Times with Adhan Notifications",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover ضروري لهواتف iPhone X وما بعدها لملء الشاشة -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#7f1d1d" />
+    <meta name="description" content="تطبيق مواقيت الصلاة في تونس مع التنبيهات والعمل بدون إنترنت" />
+    
+    <!-- إعدادات التوافق مع Internet Explorer القديم (للاحتياط) -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <!-- إعدادات iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2319/2319865.png">
+    
+    <title>مواقيت الصلاة - تونس</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            screens: {
+              'xs': '375px',
+            },
+            fontFamily: {
+              tajawal: ['Tajawal', 'sans-serif'],
+              amiri: ['Amiri', 'serif'],
+            },
+            colors: {
+              brand: {
+                light: '#7f1d1d',
+                dark: '#450a0a',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --vh: 1vh;
+        
+        /* --- Advanced Fluid Typography System --- */
+        /* Base size scales with viewport width: minimum 14px, prefers 1rem + 0.5vw, max 18px */
+        --text-fluid-base: clamp(0.875rem, 0.8rem + 0.5vw, 1.125rem);
+        --text-fluid-lg: clamp(1.125rem, 1rem + 1vw, 1.5rem);
+        --text-fluid-xl: clamp(1.5rem, 1.2rem + 1.5vw, 2.5rem);
+        --text-fluid-time: clamp(2rem, 1.5rem + 3vw, 4rem);
+      }
+      
+      html {
+        scroll-behavior: smooth;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+
+      body {
+        font-family: 'Tajawal', sans-serif;
+        overscroll-behavior-y: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-size: var(--text-fluid-base);
+      }
+
+      .font-quran {
+        font-family: 'Amiri', serif;
+      }
+
+      /* Safe Area Utility */
+      .safe-area-pb {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .pt-safe-top {
+        padding-top: max(1rem, env(safe-area-inset-top));
+      }
+
+      /* Hardware Acceleration */
+      .hardware-accelerated {
+        transform: translate3d(0, 0, 0);
+        backface-visibility: hidden;
+        perspective: 1000px;
+      }
+
+      /* --- Container Queries Logic --- */
+      
+      /* 1. Define the container */
+      .cq-container {
+        container-type: inline-size;
+        container-name: card-container;
+      }
+
+      /* 2. Define rules based on container width (Not viewport) */
+      
+      /* Default Style (Mobile/Narrow) is defined in standard CSS classes */
+
+      /* When container is larger than 300px (Wide Card) */
+      @container card-container (min-width: 300px) {
+        .cq-card-content {
+          flex-direction: row !important;
+          justify-content: space-between;
+          padding: 1.5rem !important;
+          text-align: right;
+        }
+        .cq-time-text {
+          font-size: 2.5rem !important;
+        }
+        .cq-label-text {
+          font-size: 1.25rem !important;
+          margin-bottom: 0 !important;
+        }
+        .cq-iqama-badge {
+          position: static !important; /* Remove absolute positioning in wide mode */
+          margin-right: auto; /* Push to left in RTL */
+        }
+      }
+
+      /* When container is very small (Sidebar/Widget) */
+      @container card-container (max-width: 150px) {
+        .cq-card-content {
+          padding: 0.5rem !important;
+        }
+        .cq-time-text {
+          font-size: 1.5rem !important;
+        }
+        .cq-label-text {
+          font-size: 0.9rem !important;
+        }
+        .cq-iqama-badge {
+          display: none; /* Hide unnecessary details in tiny containers */
+        }
+      }
+
+      /* --- Input Mode Adaptations --- */
+      
+      /* Touch Mode: Larger Touch Targets */
+      .mode-touch .touch-target {
+        min-height: 48px;
+        min-width: 48px;
+      }
+      
+      /* Mouse Mode: More compact, better hover states */
+      .mode-mouse .touch-target {
+        min-height: 32px;
+      }
+
+      /* High Contrast Mode Overrides */
+      .mode-high-contrast .text-gray-500, 
+      .mode-high-contrast .text-gray-400 {
+        color: #000 !important;
+      }
+      .dark .mode-high-contrast .text-gray-500,
+      .dark .mode-high-contrast .text-gray-400 {
+        color: #fff !important;
+      }
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4"
+  }
+}
+</script>
+</head>
+  <body class="bg-gray-100 dark:bg-slate-900 transition-colors duration-300 select-none overflow-x-hidden">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
