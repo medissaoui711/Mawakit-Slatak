@@ -1,6 +1,13 @@
 
-import React, { useEffect } from 'react';
-import Header from './components/layout/Header';
+import React from 'react';
+import { Settings, MapPin, ChevronDown, Calendar, Compass } from 'lucide-react';
+
+// Contexts
+import { PrayerProvider, usePrayerData } from './context/PrayerContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { DeviceProvider } from './context/DeviceContext';
+
+// Components
 import PrayerCard from './components/PrayerCard';
 import CountdownTimer from './components/CountdownTimer';
 import StatusBanner from './components/common/StatusBanner';
@@ -8,158 +15,170 @@ import SettingsModal from './components/settings/SettingsModal';
 import QiblaCompass from './components/QiblaCompass';
 import InstallPrompt from './components/common/InstallPrompt';
 import AudioPermissionModal from './components/common/AudioPermissionModal';
-import WeeklySchedule from './components/desktop/WeeklySchedule';
-import DayTimeline from './components/desktop/DayTimeline';
+import RamadanImsakiya from './components/RamadanImsakiya';
+import { Logo } from './components/common/Logo';
 
-import { PrayerProvider, usePrayerData } from './context/PrayerContext';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { DeviceProvider, useDevice } from './context/DeviceContext';
+// Data & Utils
 import { CITIES } from './constants/data';
-import { useSwipe } from './hooks/useSwipe';
 import { useViewportHeight } from './hooks/useViewportHeight';
-import { useWeeklySchedule } from './hooks/useWeeklySchedule';
-import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
+import { getArabicDateString } from './utils';
 
-// Inner Component to use hooks
-const AppContent: React.FC = () => {
+const AppLayout: React.FC = () => {
   const { 
-    timings, loading, error, 
-    nextPrayerEn, countdown, isUrgent,
-    requestPermission, enableAudio, audioUnlocked,
-    selectedCity, setSelectedCity, setIsSettingsOpen,
-    iqamaSettings,
-    isQiblaOpen, setIsQiblaOpen
+    timings, loading, error,
+    nextPrayer, nextPrayerEn, countdown, isUrgent,
+    selectedCity, setSelectedCity,
+    setIsSettingsOpen, iqamaSettings,
+    isQiblaOpen, setIsQiblaOpen,
+    settings: notifSettings, updateGlobalEnabled,
+    audioUnlocked, enableAudio,
+    hijriDate
   } = usePrayerData();
 
-  const { toggleDarkMode } = useTheme();
-  const { schedule } = useWeeklySchedule(selectedCity);
-  
   useViewportHeight();
 
-  const handleUserInteraction = () => {
-    if (!audioUnlocked) {
-      enableAudio();
-      // We don't force request permission on every click anymore, handled by the Modal
-    }
+  // التعامل مع تغيير المدينة
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const city = CITIES.find(c => c.apiName === e.target.value);
+    if (city) setSelectedCity(city);
   };
 
-  const handleNextCity = () => {
-    const currentIndex = CITIES.findIndex(c => c.apiName === selectedCity.apiName);
-    const nextIndex = (currentIndex + 1) % CITIES.length;
-    setSelectedCity(CITIES[nextIndex]);
+  // تفعيل الصوت عند أول تفاعل
+  const handleInteraction = () => {
+    if (!audioUnlocked) enableAudio();
   };
-
-  const handlePrevCity = () => {
-    const currentIndex = CITIES.findIndex(c => c.apiName === selectedCity.apiName);
-    const prevIndex = (currentIndex - 1 + CITIES.length) % CITIES.length;
-    setSelectedCity(CITIES[prevIndex]);
-  };
-
-  const swipeHandlers = useSwipe({
-    onSwipedLeft: handleNextCity,
-    onSwipedRight: handlePrevCity
-  });
-
-  useKeyboardNavigation({
-    onNextCity: handleNextCity,
-    onPrevCity: handlePrevCity,
-    toggleTheme: toggleDarkMode,
-    toggleSettings: () => setIsSettingsOpen(true)
-  });
 
   return (
     <div 
-      className="w-full min-h-screen bg-gray-100 dark:bg-slate-950 text-gray-900 dark:text-white font-tajawal flex flex-col transition-colors duration-300 pb-safe-area-pb hardware-accelerated overflow-x-hidden"
-      onClick={handleUserInteraction}
-      {...swipeHandlers}
-      style={{ minHeight: 'calc(var(--vh, 1vh) * 100)' }}
+      className="w-full h-screen bg-red-600 text-white font-tajawal flex flex-col overflow-hidden relative"
+      onClick={handleInteraction}
+      style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
     >
-      <StatusBanner />
+      <div className="absolute inset-x-0 top-0 z-50">
+         <StatusBanner />
+      </div>
+      
       <SettingsModal />
       <QiblaCompass isOpen={isQiblaOpen} onClose={() => setIsQiblaOpen(false)} />
+      <RamadanImsakiya isOpen={false} onClose={() => {}} />
       <InstallPrompt />
       <AudioPermissionModal />
 
-      {/* Responsive Layout Strategy */}
-      <div className="flex flex-col lg:flex-row h-full">
+      {/* --- Top Buttons (Absolute) --- */}
+      <div className="absolute top-0 left-0 right-0 pt-safe-top px-6 flex justify-between items-center z-20 mt-2">
+        <button 
+          onClick={() => setIsSettingsOpen(true)}
+          className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors text-white shadow-sm"
+        >
+          <Settings size={20} />
+        </button>
         
-        {/* Main Content Area (Mobile: Full width, Desktop: 70%) */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header />
+         <button 
+          onClick={() => setIsQiblaOpen(true)}
+          className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors text-white shadow-sm"
+        >
+           <Compass size={20} />
+        </button>
+      </div>
 
-          <div className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 -mt-6 md:-mt-10 relative z-10">
-            
-            {/* Desktop: Day Timeline (Visual Progress) */}
-            {timings && <DayTimeline timings={timings} />}
+      {/* --- Main Content Area --- */}
+      <div className="flex-1 flex flex-col items-center w-full max-w-md mx-auto px-6 relative z-10 min-h-0 pt-14">
+        
+        {/* 1. Branding (More Compact) */}
+        <div className="flex flex-col items-center justify-center mb-3 shrink-0 animate-in fade-in slide-in-from-top-4 duration-500">
+          <Logo className="w-14 h-14 text-white drop-shadow-lg" />
+          <h1 className="text-lg font-bold text-white tracking-wide mt-1 drop-shadow-md opacity-90">مواقيت تونس</h1>
+        </div>
 
-            <div className="mb-4 sm:mb-6" style={{ willChange: 'contents' }}>
-              <CountdownTimer 
-                nextPrayerName={nextPrayerEn || ''} 
-                countdown={countdown} 
-                isUrgent={isUrgent} 
-              />
-            </div>
+        {/* 2. Information Cards (Compact Height) */}
+        <div className="w-full space-y-2 mb-2 shrink-0">
+          
+          {/* City Selector Card */}
+          <div className="relative w-full bg-white/95 backdrop-blur rounded-xl h-11 shadow-md flex items-center px-4 overflow-hidden group transition-transform active:scale-98">
+             <MapPin className="text-red-600 ml-2" size={18} />
+             <select 
+               value={selectedCity.apiName}
+               onChange={handleCityChange}
+               className="w-full h-full bg-transparent text-gray-800 font-bold text-base text-center appearance-none outline-none cursor-pointer dir-rtl z-10"
+             >
+               {CITIES.map(city => (
+                 <option key={city.apiName} value={city.apiName}>{city.nameAr}</option>
+               ))}
+             </select>
+             <div className="absolute left-4 pointer-events-none text-gray-400">
+               <ChevronDown size={16} />
+             </div>
+          </div>
 
-            {error && !timings && (
-               <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 text-red-700 dark:text-red-300 px-4 py-4 rounded-xl mb-6 text-center shadow-sm" role="alert">
-                  <strong className="font-bold block mb-1">تنبيه</strong>
-                  <span className="block text-sm sm:text-base">{error}</span>
-               </div>
-            )}
-
-            {loading && !timings ? (
-              <div className="flex flex-col justify-center items-center min-h-[300px] text-gray-500 dark:text-gray-400 gap-6">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-red-900 dark:border-slate-700 dark:border-t-red-500"></div>
-                <p className="font-medium animate-pulse">جاري تحميل المواقيت...</p>
-              </div>
-            ) : timings ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                 {/* Prayer Cards Wrapper - Grid with rounded corners */}
-                 <div className="col-span-2 md:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-px bg-gray-200 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5 dark:ring-white/5 hardware-accelerated">
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الفجر" time={timings.Fajr} iqamaOffset={iqamaSettings.Fajr} isNext={nextPrayerEn === 'Fajr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الشروق" time={timings.Sunrise} iqamaOffset={0} isNext={nextPrayerEn === 'Sunrise'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="الظهر" time={timings.Dhuhr} iqamaOffset={iqamaSettings.Dhuhr} isNext={nextPrayerEn === 'Dhuhr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العصر" time={timings.Asr} iqamaOffset={iqamaSettings.Asr} isNext={nextPrayerEn === 'Asr'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="المغرب" time={timings.Maghrib} iqamaOffset={iqamaSettings.Maghrib} isNext={nextPrayerEn === 'Maghrib'} /></div>
-                   <div className="bg-white dark:bg-slate-900 h-full min-h-[110px] sm:min-h-[120px]"><PrayerCard name="العشاء" time={timings.Isha} iqamaOffset={iqamaSettings.Isha} isNext={nextPrayerEn === 'Isha'} /></div>
-                 </div>
-              </div>
-            ) : null}
-
-            <div className="text-center mt-8 md:mt-16 text-gray-500 dark:text-gray-400 lg:hidden">
-              <p className="font-quran text-brand-light dark:text-red-400/80 leading-loose opacity-90 drop-shadow-sm" style={{ fontSize: 'var(--text-fluid-xl)' }}>
-                &#123; إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَوْقُوتًا &#125;
-              </p>
-            </div>
+          {/* Date Card */}
+          <div className="w-full bg-white/95 backdrop-blur rounded-xl h-12 shadow-md flex flex-col items-center justify-center text-gray-800">
+             <span className="font-bold text-sm text-gray-900">
+               {getArabicDateString(new Date())}
+             </span>
+             <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
+               <Calendar size={10} />
+               <span>{timings ? hijriDate : '...'}</span>
+             </div>
           </div>
         </div>
 
-        {/* Sidebar / Secondary Content (Desktop Only) */}
-        <div className="hidden lg:flex w-80 flex-col p-6 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-r border-gray-200 dark:border-slate-800 overflow-y-auto">
-           <div className="sticky top-0 space-y-6">
-              
-              {/* Additional Info Block */}
-              <div className="bg-gradient-to-br from-red-900 to-red-800 rounded-2xl p-6 text-white shadow-lg">
-                 <h3 className="font-bold text-lg mb-2 opacity-90">معلومة اليوم</h3>
-                 <p className="text-sm leading-relaxed opacity-80">
-                   أفضل الأعمال الصلاة في وقتها. حافظ على صلواتك وذكر الله في كل حين.
-                 </p>
+        {/* 3. Notification Toggle */}
+        <div className="w-full flex items-center justify-center mb-1 shrink-0">
+            <button 
+              onClick={(e) => {
+                  e.stopPropagation();
+                  updateGlobalEnabled(!notifSettings.globalEnabled);
+              }}
+              className="flex items-center gap-2 bg-black/20 px-4 py-1 rounded-full backdrop-blur-sm hover:bg-black/30 transition-colors"
+            >
+              <span className="text-xs font-medium text-white/90">التنبيهات</span>
+              <div className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-300 flex items-center ${notifSettings.globalEnabled ? 'bg-green-400' : 'bg-white/30'}`}>
+                <div className={`w-3 h-3 bg-white rounded-full shadow-sm transform transition-transform duration-300 ${notifSettings.globalEnabled ? '-translate-x-3' : 'translate-x-0'}`} />
               </div>
+            </button>
+        </div>
 
-              {/* Weekly Schedule */}
-              <WeeklySchedule schedule={schedule} />
-
-              {/* Keyboard Shortcuts Hint */}
-              <div className="bg-gray-100 dark:bg-slate-800 rounded-xl p-4 text-xs text-gray-500 dark:text-gray-400">
-                <h4 className="font-bold mb-2 uppercase tracking-wider text-gray-400 dark:text-gray-500">اختصارات لوحة المفاتيح</h4>
-                <div className="flex justify-between mb-1"><span>تغيير المدينة</span> <span className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded">← / →</span></div>
-                <div className="flex justify-between mb-1"><span>الوضع الليلي</span> <span className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded">M</span></div>
-                <div className="flex justify-between"><span>الإعدادات</span> <span className="font-mono bg-gray-200 dark:bg-slate-700 px-1 rounded">S</span></div>
-              </div>
-           </div>
+        {/* 4. Hero Countdown (Flex-1 to take prominent center space) */}
+        <div className="flex-1 flex flex-col items-center justify-center w-full pb-4 min-h-0">
+          {loading ? (
+            <div className="animate-pulse text-white/60 text-lg">جاري التحميل...</div>
+          ) : error ? (
+            <div className="text-red-200 bg-red-900/50 px-4 py-2 rounded-lg text-sm text-center">{error}</div>
+          ) : (
+            <CountdownTimer 
+              nextPrayerName={nextPrayer || ''} 
+              countdown={countdown} 
+              isUrgent={isUrgent} 
+            />
+          )}
         </div>
 
       </div>
+
+      {/* --- Bottom Sheet (Reduced Height) --- */}
+      <div className="bg-white w-full rounded-t-[2rem] px-5 pt-6 pb-safe-area-pb shadow-[0_-10px_40px_rgba(0,0,0,0.2)] z-30 h-[35vh] flex flex-col shrink-0 relative">
+         {/* Handle Bar */}
+         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 rounded-full opacity-60"></div>
+         
+         {/* Prayer Cards Grid */}
+         <div className="grid grid-cols-3 grid-rows-2 gap-3 h-full pb-4">
+            {loading ? (
+              [...Array(6)].map((_, i) => (
+                <div key={i} className="bg-gray-50 rounded-xl animate-pulse h-full w-full" />
+              ))
+            ) : timings ? (
+              <>
+                <PrayerCard name="الفجر" time={timings.Fajr} iqamaOffset={iqamaSettings.Fajr} isNext={nextPrayerEn === 'Fajr'} />
+                <PrayerCard name="الشروق" time={timings.Sunrise} iqamaOffset={0} isNext={nextPrayerEn === 'Sunrise'} />
+                <PrayerCard name="الظهر" time={timings.Dhuhr} iqamaOffset={iqamaSettings.Dhuhr} isNext={nextPrayerEn === 'Dhuhr'} />
+                <PrayerCard name="العصر" time={timings.Asr} iqamaOffset={iqamaSettings.Asr} isNext={nextPrayerEn === 'Asr'} />
+                <PrayerCard name="المغرب" time={timings.Maghrib} iqamaOffset={iqamaSettings.Maghrib} isNext={nextPrayerEn === 'Maghrib'} />
+                <PrayerCard name="العشاء" time={timings.Isha} iqamaOffset={iqamaSettings.Isha} isNext={nextPrayerEn === 'Isha'} />
+              </>
+            ) : null}
+         </div>
+      </div>
+
     </div>
   );
 };
@@ -169,7 +188,7 @@ const App: React.FC = () => {
     <DeviceProvider>
       <ThemeProvider>
         <PrayerProvider>
-          <AppContent />
+          <AppLayout />
         </PrayerProvider>
       </ThemeProvider>
     </DeviceProvider>
