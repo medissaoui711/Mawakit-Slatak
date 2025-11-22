@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { Settings, MapPin, ChevronDown, Calendar, Compass } from 'lucide-react';
+import { Settings, MapPin, ChevronDown, Calendar, Compass, Moon, Sun } from 'lucide-react';
 
 // Contexts
 import { PrayerProvider, usePrayerData } from './context/PrayerContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { DeviceProvider } from './context/DeviceContext';
 
 // Components
@@ -35,6 +35,8 @@ const AppLayout: React.FC = () => {
     hijriDate
   } = usePrayerData();
 
+  const { isDark, toggleDarkMode } = useTheme();
+
   useViewportHeight();
 
   // التعامل مع تغيير المدينة
@@ -50,7 +52,7 @@ const AppLayout: React.FC = () => {
 
   return (
     <div 
-      className="w-full h-screen bg-red-600 text-white font-tajawal flex flex-col overflow-hidden relative"
+      className="w-full h-screen bg-red-600 dark:bg-slate-950 text-white font-tajawal flex flex-col overflow-hidden relative transition-colors duration-500"
       onClick={handleInteraction}
       style={{ height: 'calc(var(--vh, 1vh) * 100)' }}
     >
@@ -66,12 +68,21 @@ const AppLayout: React.FC = () => {
 
       {/* --- Top Buttons (Absolute) --- */}
       <div className="absolute top-0 left-0 right-0 pt-safe-top px-6 flex justify-between items-center z-20 mt-2">
-        <button 
-          onClick={() => setIsSettingsOpen(true)}
-          className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors text-white shadow-sm"
-        >
-          <Settings size={20} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors text-white shadow-sm"
+          >
+            <Settings size={20} />
+          </button>
+          
+          <button 
+            onClick={toggleDarkMode}
+            className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full backdrop-blur-md transition-colors text-white shadow-sm"
+          >
+            {isDark ? <Sun size={20} className="text-yellow-300" /> : <Moon size={20} />}
+          </button>
+        </div>
         
          <button 
           onClick={() => setIsQiblaOpen(true)}
@@ -94,15 +105,15 @@ const AppLayout: React.FC = () => {
         <div className="w-full space-y-2 mb-2 shrink-0">
           
           {/* City Selector Card */}
-          <div className="relative w-full bg-white/95 backdrop-blur rounded-xl h-11 shadow-md flex items-center px-4 overflow-hidden group transition-transform active:scale-98">
-             <MapPin className="text-red-600 ml-2" size={18} />
+          <div className="relative w-full bg-white/95 dark:bg-slate-900/90 backdrop-blur rounded-xl h-11 shadow-md flex items-center px-4 overflow-hidden group transition-transform active:scale-98 border border-transparent dark:border-slate-700">
+             <MapPin className="text-red-600 dark:text-red-400 ml-2" size={18} />
              <select 
                value={selectedCity.apiName}
                onChange={handleCityChange}
-               className="w-full h-full bg-transparent text-gray-800 font-bold text-base text-center appearance-none outline-none cursor-pointer dir-rtl z-10"
+               className="w-full h-full bg-transparent text-gray-800 dark:text-white font-bold text-base text-center appearance-none outline-none cursor-pointer dir-rtl z-10"
              >
                {CITIES.map(city => (
-                 <option key={city.apiName} value={city.apiName}>{city.nameAr}</option>
+                 <option key={city.apiName} value={city.apiName} className="text-gray-900 dark:text-white dark:bg-slate-800">{city.nameAr}</option>
                ))}
              </select>
              <div className="absolute left-4 pointer-events-none text-gray-400">
@@ -111,11 +122,11 @@ const AppLayout: React.FC = () => {
           </div>
 
           {/* Date Card */}
-          <div className="w-full bg-white/95 backdrop-blur rounded-xl h-12 shadow-md flex flex-col items-center justify-center text-gray-800">
-             <span className="font-bold text-sm text-gray-900">
+          <div className="w-full bg-white/95 dark:bg-slate-900/90 backdrop-blur rounded-xl h-12 shadow-md flex flex-col items-center justify-center text-gray-800 dark:text-white border border-transparent dark:border-slate-700">
+             <span className="font-bold text-sm text-gray-900 dark:text-white">
                {getArabicDateString(new Date())}
              </span>
-             <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500">
+             <div className="flex items-center gap-2 text-[10px] font-medium text-gray-500 dark:text-gray-400">
                <Calendar size={10} />
                <span>{timings ? hijriDate : '...'}</span>
              </div>
@@ -129,7 +140,7 @@ const AppLayout: React.FC = () => {
                   e.stopPropagation();
                   updateGlobalEnabled(!notifSettings.globalEnabled);
               }}
-              className="flex items-center gap-2 bg-black/20 px-4 py-1 rounded-full backdrop-blur-sm hover:bg-black/30 transition-colors"
+              className="flex items-center gap-2 bg-black/20 px-4 py-1 rounded-full backdrop-blur-sm hover:bg-black/30 transition-colors border border-white/10"
             >
               <span className="text-xs font-medium text-white/90">التنبيهات</span>
               <div className={`w-7 h-4 rounded-full p-0.5 transition-colors duration-300 flex items-center ${notifSettings.globalEnabled ? 'bg-green-400' : 'bg-white/30'}`}>
@@ -156,15 +167,15 @@ const AppLayout: React.FC = () => {
       </div>
 
       {/* --- Bottom Sheet (Reduced Height) --- */}
-      <div className="bg-white w-full rounded-t-[2rem] px-5 pt-6 pb-safe-area-pb shadow-[0_-10px_40px_rgba(0,0,0,0.2)] z-30 h-[35vh] flex flex-col shrink-0 relative">
+      <div className="bg-white dark:bg-slate-900 w-full rounded-t-[2rem] px-5 pt-6 pb-safe-area-pb shadow-[0_-10px_40px_rgba(0,0,0,0.2)] z-30 h-[38vh] flex flex-col shrink-0 relative transition-colors duration-500 border-t border-transparent dark:border-slate-800">
          {/* Handle Bar */}
-         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 rounded-full opacity-60"></div>
+         <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 bg-gray-200 dark:bg-slate-700 rounded-full opacity-60"></div>
          
          {/* Prayer Cards Grid */}
          <div className="grid grid-cols-3 grid-rows-2 gap-3 h-full pb-4">
             {loading ? (
               [...Array(6)].map((_, i) => (
-                <div key={i} className="bg-gray-50 rounded-xl animate-pulse h-full w-full" />
+                <div key={i} className="bg-gray-50 dark:bg-slate-800 rounded-xl animate-pulse h-full w-full" />
               ))
             ) : timings ? (
               <>
@@ -177,6 +188,15 @@ const AppLayout: React.FC = () => {
               </>
             ) : null}
          </div>
+         
+         {/* Footer Decoration */}
+          <div className="absolute bottom-safe-area-pb w-full left-0 text-center pb-2 pt-1 opacity-80">
+            <div className="flex items-center justify-center gap-2 text-red-900/80 dark:text-red-200/80">
+               <span className="text-lg">۞</span>
+               <span className="font-quran text-sm">إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا</span>
+               <span className="text-lg">۞</span>
+            </div>
+          </div>
       </div>
 
     </div>

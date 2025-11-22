@@ -12,7 +12,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({ nextPrayerName, countdo
 
   return (
     <div className="flex flex-col items-center justify-center text-center w-full select-none animate-in zoom-in-90 duration-500">
-      <div className="text-red-100/90 text-base sm:text-lg font-medium mb-1 sm:mb-2 drop-shadow-sm">
+      <div className="text-red-100/90 dark:text-slate-300 text-base sm:text-lg font-medium mb-1 sm:mb-2 drop-shadow-sm transition-colors">
         المتبقي لصلاة {nextPrayerName}
       </div>
       
@@ -27,7 +27,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({ nextPrayerName, countdo
       </div>
       
       {isUrgent && (
-        <div className="mt-4 text-white text-xs sm:text-sm font-bold bg-red-800/40 px-4 py-1.5 rounded-full border border-red-400/30 animate-bounce-subtle backdrop-blur-sm shadow-lg">
+        <div className="mt-4 text-white text-xs sm:text-sm font-bold bg-red-800/40 dark:bg-red-900/60 px-4 py-1.5 rounded-full border border-red-400/30 animate-bounce-subtle backdrop-blur-sm shadow-lg">
           اقترب وقت الأذان
         </div>
       )}
