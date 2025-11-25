@@ -72,12 +72,24 @@ class AudioManager {
   }
 
   unlock() {
+    // Only try to unlock if not already playing something important
+    if (this.isPlayingState) return;
+
     // Play a silent sound to unlock audio on mobile/browsers
+    const originalSrc = this.audio.src;
     this.audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    
     this.audio.play().then(() => {
         this.audio.pause();
         this.audio.currentTime = 0;
-    }).catch(e => console.log("Audio unlock failed", e));
+        // Reset src only if it was empty before to avoid side effects
+        if (!originalSrc) {
+            this.audio.removeAttribute('src');
+        }
+    }).catch(() => {
+        // Silently fail. This is expected if called before any user interaction.
+        // We don't want to spam the console.
+    });
   }
 }
 

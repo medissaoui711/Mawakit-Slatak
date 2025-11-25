@@ -99,6 +99,27 @@ const App: React.FC = () => {
     if (!audioPermission) {
       setShowAudioPermission(true);
     }
+
+    // Global interaction listener to unlock audio context silently
+    // This ensures that if the user clicks ANYWHERE in the app, we unlock the audio engine
+    // for the current session, satisfying browser autoplay policies.
+    const unlockAudioOnInteraction = () => {
+        audioManager.unlock();
+        // Remove listeners once triggered
+        window.removeEventListener('click', unlockAudioOnInteraction);
+        window.removeEventListener('touchstart', unlockAudioOnInteraction);
+        window.removeEventListener('keydown', unlockAudioOnInteraction);
+    };
+
+    window.addEventListener('click', unlockAudioOnInteraction);
+    window.addEventListener('touchstart', unlockAudioOnInteraction);
+    window.addEventListener('keydown', unlockAudioOnInteraction);
+
+    return () => {
+        window.removeEventListener('click', unlockAudioOnInteraction);
+        window.removeEventListener('touchstart', unlockAudioOnInteraction);
+        window.removeEventListener('keydown', unlockAudioOnInteraction);
+    };
   }, []);
 
   const handleAudioEnable = () => {
@@ -209,6 +230,10 @@ const App: React.FC = () => {
       <Header 
         locationName={settings.location?.city || "..."}
         onSettingsClick={handleOpenSettings}
+        onQiblaClick={() => setQiblaOpen(true)}
+        onQuranClick={() => setQuranOpen(true)}
+        onAdhkarClick={() => setAdhkarOpen(true)}
+        onTasbihClick={() => setTasbihOpen(true)}
       />
 
       <main className="main-content">
