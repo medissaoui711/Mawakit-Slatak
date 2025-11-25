@@ -1,7 +1,8 @@
 {
-  "name": "Mawakit Tunisia",
-  "description": "Tunisian Prayer Times with Adhan Notifications",
+  "name": "Basic Prayer Times",
+  "description": "A simple application to display prayer times.",
   "requestFramePermissions": [
-    "microphone"
+    "geolocation",
+    "camera"
   ]
 }

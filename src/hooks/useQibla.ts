@@ -1,96 +1,69 @@
+import { useState, useEffect, useRef } from 'react';
+import { Location } from '../types';
+import { calculateQiblaDirection, calculateDistanceToKaaba } from '../utils/qiblaUtils';
+import { useTranslation } from '../context/LocaleContext';
 
-import { useState, useEffect, useCallback } from 'react';
-import { calculateQiblaAngle } from '../utils/qiblaUtils';
+export const useQibla = (userLocation: Location | null) => {
+    const [qiblaDirection, setQiblaDirection] = useState<number | null>(null);
+    const [distanceToKaaba, setDistanceToKaaba] = useState<number | null>(null);
+    const [deviceAngle, setDeviceAngle] = useState<number | null>(null);
+    const [sensorError, setSensorError] = useState<string | null>(null);
+    const lastUpdate = useRef(0);
+    const { t } = useTranslation();
 
-export const useQibla = () => {
-  const [qiblaAngle, setQiblaAngle] = useState<number>(0); // اتجاه القبلة بالنسبة للشمال
-  const [compassHeading, setCompassHeading] = useState<number>(0); // اتجاه الهاتف بالنسبة للشمال
-  const [error, setError] = useState<string | null>(null);
-  const [calibrationRequired, setCalibrationRequired] = useState(false);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-
-  // 1. الحصول على الموقع وحساب زاوية القبلة الثابتة
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setError('الموقع الجغرافي غير مدعوم');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const angle = calculateQiblaAngle(latitude, longitude);
-        setQiblaAngle(angle);
-      },
-      (err) => {
-        console.error(err);
-        setError('يرجى تفعيل الموقع الجغرافي لحساب القبلة');
-      }
-    );
-  }, []);
-
-  // 2. التعامل مع حساسات الحركة
-  const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    let heading = 0;
-
-    // Android (Chrome) & iOS (Webkit) logic differentiation
-    // @ts-ignore - webkitCompassHeading is iOS specific
-    if (event.webkitCompassHeading) {
-       // iOS
-       // @ts-ignore
-       heading = event.webkitCompassHeading;
-    } else if (event.alpha !== null) {
-      // Android - alpha is strictly not compass heading without calculation, 
-      // but for absolute orientation events it represents degrees from North
-      // Note: 'deviceorientationabsolute' is preferred on Android if available
-      heading = 360 - event.alpha;
-    }
-
-    setCompassHeading(heading);
-  }, []);
-
-  const requestCompassPermission = async () => {
-    // @ts-ignore - iOS 13+ specific permission request
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      try {
-        // @ts-ignore
-        const response = await DeviceOrientationEvent.requestPermission();
-        if (response === 'granted') {
-          setPermissionGranted(true);
-          window.addEventListener('deviceorientation', handleOrientation, true);
-        } else {
-          setError('تم رفض إذن البوصلة');
+    useEffect(() => {
+        if (userLocation?.latitude && userLocation?.longitude) {
+            const direction = calculateQiblaDirection(userLocation.latitude, userLocation.longitude);
+            const distance = calculateDistanceToKaaba(userLocation.latitude, userLocation.longitude);
+            setQiblaDirection(direction);
+            setDistanceToKaaba(distance);
         }
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      // Non-iOS 13+ devices (Android, older iOS) don't need permission request
-      setPermissionGranted(true);
-      // Try absolute orientation first (Android)
-      if ('ondeviceorientationabsolute' in (window as any)) {
-        (window as any).addEventListener('deviceorientationabsolute', (e: any) => handleOrientation(e), true);
-      } else {
-        window.addEventListener('deviceorientation', handleOrientation, true);
-      }
-    }
-  };
+    }, [userLocation]);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      window.removeEventListener('deviceorientation', handleOrientation);
-      // @ts-ignore
-      window.removeEventListener('deviceorientationabsolute', handleOrientation);
-    };
-  }, [handleOrientation]);
+    useEffect(() => {
+        const throttleMs = 100; // Update max 10 times per second
 
-  return {
-    qiblaAngle,
-    compassHeading,
-    error,
-    calibrationRequired,
-    permissionGranted,
-    requestCompassPermission
-  };
+        const handleOrientation = (event: DeviceOrientationEvent) => {
+            const now = Date.now();
+            if (now - lastUpdate.current < throttleMs) {
+                return;
+            }
+            lastUpdate.current = now;
+
+            const webkitHeading = (event as any).webkitCompassHeading;
+            const alpha = event.alpha;
+            
+            let finalHeading: number | null = null;
+            
+            if (webkitHeading !== undefined && webkitHeading !== null) {
+                // On iOS, webkitCompassHeading is already compensated for device orientation.
+                finalHeading = webkitHeading;
+            } else if (alpha !== null) {
+                // On other devices (like Android), alpha is often inverted by 180 degrees.
+                // We compensate for this inversion and then for screen orientation.
+                const correctedAlpha = (alpha + 180) % 360; // Correct the inversion
+                finalHeading = (correctedAlpha + (screen.orientation?.angle || 0)) % 360;
+            }
+            
+            if (finalHeading !== null) {
+                setDeviceAngle(finalHeading);
+                if (sensorError) setSensorError(null);
+            } else if (!sensorError) {
+                 setSensorError(t('error_sensor_access'));
+            }
+        };
+
+        // Check for support before adding listener
+        if ('DeviceOrientationEvent' in window) {
+             window.addEventListener('deviceorientation', handleOrientation);
+        } else {
+            setSensorError(t('error_sensor_support'));
+        }
+
+        return () => {
+            window.removeEventListener('deviceorientation', handleOrientation);
+        };
+    }, [sensorError, t]);
+
+    return { qiblaDirection, distanceToKaaba, deviceAngle, sensorError };
 };

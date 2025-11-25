@@ -1,155 +1,193 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { Settings, Location, Locale } from '../types';
+import { fetchCityAndCountry } from '../utils';
+import { useLocale, useTranslation } from './LocaleContext';
+import audioManager from '../utils/audioManager';
 
-import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
-import { CityOption, PrayerTimings, NotificationSettings, IqamaSettings } from '../types';
-import { CITIES } from '../constants/data';
-import { usePrayerTimes } from '../hooks/usePrayerTimes';
-import { useCountdown } from '../hooks/useCountdown';
-import { useAdhanNotification, AudioPermissionState } from '../hooks/useAdhanNotification';
-import { useNotificationSettings } from '../hooks/useNotificationSettings';
-import { useIqamaSettings } from '../hooks/useIqamaSettings';
+const defaultSettings: Settings = {
+  location: null,
+  calculationMethod: 4, // Umm Al-Qura, Makkah
+  asrMethod: 0, // Standard
+  iqamaTime: 20, // Default 20 minutes for Iqama
+  muezzin: 'alafasy',
+  adhanFor: {
+    Fajr: true,
+    Dhuhr: true,
+    Asr: true,
+    Maghrib: true,
+    Isha: true,
+  },
+  adhanVolume: 1,
+  adhanMode: 'full',
+};
 
-interface PrayerContextType {
-  selectedCity: CityOption;
-  setSelectedCity: (city: CityOption) => void;
-  timings: PrayerTimings | null;
-  hijriDate: string;
-  loading: boolean;
-  error: string | null;
-  isOffline: boolean;
-  isStale: boolean;
-  lastUpdated: number | null;
-  refetch: () => void;
-  nextPrayer: string | null;
-  nextPrayerEn: string | null;
-  countdown: string;
-  isUrgent: boolean;
-  
-  // Notification logic
-  notificationsEnabled: boolean;
-  requestPermission: () => void;
-  enableAudio: () => void;
-  playPreview: (id: string) => void;
-  stopAudio: () => void;
-  audioUnlocked: boolean;
-  audioPermission: AudioPermissionState;
-  setAudioPermission: (state: AudioPermissionState) => void;
-
-  // Settings
-  settings: NotificationSettings;
-  updateGlobalEnabled: (val: boolean) => void;
-  updatePrayerSetting: (prayer: string, field: 'enabled' | 'preAdhanMinutes', value: any) => void;
-  isSettingsOpen: boolean;
-  setIsSettingsOpen: (val: boolean) => void;
-
-  // Iqama Settings
-  iqamaSettings: IqamaSettings;
-  updateIqamaTime: (prayer: string, minutes: number) => void;
-  resetIqamaDefaults: () => void;
-  applyRamadanIqama: () => void;
-  
-  // Qibla Modal Control
-  isQiblaOpen: boolean;
-  setIsQiblaOpen: (val: boolean) => void;
-
-  // Adhan Sound Logic
-  adhanSoundId: string;
-  setAdhanSoundId: (id: string) => void;
+type PermissionStatus = 'loading' | 'prompt' | 'granted' | 'denied';
+interface SettingsContextType {
+  settings: Settings;
+  setSettings: React.Dispatch<React.SetStateAction<Settings>>;
+  fetchAndSetLocation: (locale: Locale) => void;
+  isLocationLoading: boolean;
+  updateLocationName: (locale: Locale) => Promise<void>;
+  permissionStatus: PermissionStatus;
+  locationError: string | null;
 }
 
-const PrayerContext = createContext<PrayerContextType | undefined>(undefined);
+const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-export const PrayerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [selectedCity, setSelectedCity] = useState<CityOption>(CITIES[0]);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isQiblaOpen, setIsQiblaOpen] = useState(false);
-  
-  // Adhan Sound State
-  const [adhanSoundId, setAdhanSoundId] = useState<string>(() => {
-     return localStorage.getItem('mawakit_adhan_sound') || 'makkah';
+export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const savedSettings = localStorage.getItem('prayerAppSettings');
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        // Ensure all default keys exist on the loaded object
+        return { ...defaultSettings, ...parsed };
+      }
+      return defaultSettings;
+    } catch (error) {
+      return defaultSettings;
+    }
   });
 
+  const [isLocationLoading, setLocationLoading] = useState<boolean>(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>(() => {
+    const savedStatus = localStorage.getItem('prayerAppPermissionStatus');
+    if (savedStatus === 'denied') {
+      return 'denied';
+    }
+    return 'loading';
+  });
+  
+  const { locale } = useLocale();
+  const { t } = useTranslation();
+
+  // Effect to synchronize audio volume with settings on app load
   useEffect(() => {
-    localStorage.setItem('mawakit_adhan_sound', adhanSoundId);
-  }, [adhanSoundId]);
-  
-  // 1. Data Hooks
-  const { timings, hijriDate, loading, error, isOffline, isStale, lastUpdated, refetch } = usePrayerTimes(selectedCity);
-  const { nextPrayer, nextPrayerEn, countdown, isUrgent } = useCountdown(timings);
-  
-  // 2. Settings Hooks
-  const { settings, updateGlobalEnabled, updatePrayerSetting } = useNotificationSettings();
-  const { iqamaSettings, updateIqamaTime, resetToDefaults, applyRamadanPreset } = useIqamaSettings();
+    audioManager.setVolume(settings.adhanVolume);
+  }, [settings.adhanVolume]);
 
-  // 3. Notification Logic
-  const { 
-    notificationsEnabled, 
-    requestNotificationPermission: requestPermission, 
-    enableAudio, 
-    playPreview,
-    stopAudio,
-    audioUnlocked,
-    audioPermission,
-    setAudioPermission
-  } = useAdhanNotification(
-    timings, 
-    adhanSoundId, 
-    settings
-  );
+  useEffect(() => {
+    if (settings.location) {
+      localStorage.setItem('prayerAppSettings', JSON.stringify(settings));
+      localStorage.removeItem('prayerAppPermissionStatus');
+    }
+  }, [settings]);
 
-  const value = useMemo(() => ({
-    selectedCity,
-    setSelectedCity,
-    timings,
-    hijriDate,
-    loading,
-    error,
-    isOffline,
-    isStale,
-    lastUpdated,
-    refetch,
-    nextPrayer,
-    nextPrayerEn,
-    countdown,
-    isUrgent,
-    notificationsEnabled,
-    requestPermission,
-    enableAudio,
-    playPreview,
-    stopAudio,
-    audioUnlocked,
-    audioPermission,
-    setAudioPermission,
-    settings,
-    updateGlobalEnabled,
-    updatePrayerSetting,
-    isSettingsOpen,
-    setIsSettingsOpen,
-    iqamaSettings,
-    updateIqamaTime,
-    resetIqamaDefaults: resetToDefaults,
-    applyRamadanIqama: applyRamadanPreset,
-    isQiblaOpen,
-    setIsQiblaOpen,
-    adhanSoundId,
-    setAdhanSoundId
-  }), [
-    selectedCity, timings, hijriDate, loading, error, isOffline, isStale, lastUpdated,
-    nextPrayer, nextPrayerEn, countdown, isUrgent, 
-    notificationsEnabled, audioUnlocked, audioPermission, settings, isSettingsOpen,
-    iqamaSettings, isQiblaOpen, adhanSoundId
-  ]);
+  const fetchAndSetLocation = useCallback((currentLocale: Locale) => {
+    if (!navigator.geolocation) {
+      setLocationError(t('error_geolocation_unsupported'));
+      return;
+    }
+    setLocationLoading(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+            const locationInfo = await fetchCityAndCountry(latitude, longitude, currentLocale);
+            setSettings(prev => ({ ...prev, location: { latitude, longitude, ...locationInfo } }));
+            setPermissionStatus('granted');
+        } catch (error) {
+            console.error("Failed to fetch city and country", error);
+            const fallbackCity = currentLocale === 'ar' ? 'موقع حالي' : 'Current Location';
+            setSettings(prev => ({ ...prev, location: { latitude, longitude, city: fallbackCity, country: '' } }));
+        } finally {
+            setLocationLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Error getting location: ", error);
+        setLocationLoading(false);
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                setPermissionStatus('denied');
+                localStorage.setItem('prayerAppPermissionStatus', 'denied');
+                setLocationError(null);
+                break;
+            case error.POSITION_UNAVAILABLE:
+                setLocationError(t('error_position_unavailable'));
+                break;
+            case error.TIMEOUT:
+                setLocationError(t('error_timeout'));
+                break;
+            default:
+                setLocationError(t('error_unknown_location'));
+                break;
+        }
+      }
+    );
+  }, [t]);
+
+  useEffect(() => {
+    if (settings.location || permissionStatus === 'denied') return;
+
+    if ('permissions' in navigator) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        setPermissionStatus(result.state);
+        if (result.state === 'denied') {
+            localStorage.setItem('prayerAppPermissionStatus', 'denied');
+        }
+
+        if (result.state === 'granted') {
+          localStorage.removeItem('prayerAppPermissionStatus');
+          fetchAndSetLocation(locale);
+        }
+
+        result.onchange = () => {
+          setPermissionStatus(result.state);
+          if (result.state === 'denied') {
+            localStorage.setItem('prayerAppPermissionStatus', 'denied');
+          } else if (result.state === 'granted') {
+            localStorage.removeItem('prayerAppPermissionStatus');
+            fetchAndSetLocation(locale);
+          }
+        };
+      }).catch(err => {
+        console.warn('Permission API query failed, falling back to prompt.', err);
+        setPermissionStatus('prompt');
+      });
+    } else {
+      if (localStorage.getItem('prayerAppPermissionStatus') !== 'denied') {
+        setPermissionStatus('prompt');
+      }
+    }
+  }, [settings.location, locale, fetchAndSetLocation, permissionStatus]);
+  
+  const updateLocationName = useCallback(async (locale: Locale) => {
+    if (!settings.location?.latitude || !settings.location?.longitude) return;
+    
+    try {
+      const { latitude, longitude } = settings.location;
+      const locationInfo = await fetchCityAndCountry(latitude, longitude, locale);
+      setSettings(prev => {
+        if (!prev.location) return prev;
+        return {
+          ...prev,
+          location: {
+            ...prev.location,
+            city: locationInfo.city,
+            country: locationInfo.country,
+          }
+        };
+      });
+    } catch (error) {
+      console.error("Failed to update location name:", error);
+    }
+  }, [settings.location?.latitude, settings.location?.longitude]);
 
   return (
-    <PrayerContext.Provider value={value}>
+    <SettingsContext.Provider value={{ settings, setSettings, fetchAndSetLocation, isLocationLoading, updateLocationName, permissionStatus, locationError }}>
       {children}
-    </PrayerContext.Provider>
+    </SettingsContext.Provider>
   );
 };
 
-export const usePrayerData = () => {
-  const context = useContext(PrayerContext);
+export const useSettings = () => {
+  const context = useContext(SettingsContext);
   if (context === undefined) {
-    throw new Error('usePrayerData must be used within a PrayerProvider');
+    throw new Error('useSettings must be used within a SettingsProvider');
   }
   return context;
 };

@@ -1,139 +1,225 @@
+import { useState, useEffect, useRef } from 'react';
+import { DailyPrayerData, PrayerTimings, Settings } from '../types';
+import { useSettings } from '../context/PrayerContext';
+import { fetchPrayerTimesByCoords, fetchPrayerTimesByCity } from '../utils';
+import { useTranslation } from '../context/LocaleContext';
+import audioManager from '../utils/audioManager';
+import { muezzins } from '../constants/data';
 
-import { useState, useEffect, useCallback } from 'react';
-import { AlAdhanResponse, PrayerTimings, CityOption } from '../types';
-import { cacheUtils } from '../utils/cache';
+// Prayer order for logical checking, including Sunrise for accurate period tracking
+const PRAYER_ORDER: (keyof PrayerTimings)[] = ['Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+// Prayers that have an Iqama countdown
+export const PRAYERS_WITH_ADHAN: (keyof Settings['adhanFor'])[] = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
-const CACHE_KEY_PREFIX = 'mawakit-cache-data-';
 
-interface StoredPrayerData {
-  timings: PrayerTimings;
-  hijriDate: string;
-}
-
-export const usePrayerTimes = (selectedCity: CityOption) => {
-  const [timings, setTimings] = useState<PrayerTimings | null>(null);
-  const [hijriDate, setHijriDate] = useState<string>('');
+export const usePrayerTimes = () => {
+  const { settings } = useSettings();
+  const [monthlyData, setMonthlyData] = useState<DailyPrayerData[] | null>(null);
+  const [dailyData, setDailyData] = useState<DailyPrayerData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
-  const [isStale, setIsStale] = useState<boolean>(false);
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  
+  const [nextPrayerInfo, setNextPrayerInfo] = useState<{ name: string; countdown: string } | null>(null);
+  const [currentPrayerInfo, setCurrentPrayerInfo] = useState<{ name: string; } | null>(null);
+  const [iqamaCountdown, setIqamaCountdown] = useState<string | null>(null);
+  
+  const [isRamadan, setIsRamadan] = useState<boolean>(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const { t } = useTranslation();
+  const iqamaIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchTimings = useCallback(async (forceUpdate = false) => {
-    const cacheKey = `${CACHE_KEY_PREFIX}${selectedCity.apiName}`;
-    
-    setLoading(true);
-    setError(null);
-
-    // تحديث حالة الاتصال الحالية
-    const currentIsOffline = !navigator.onLine;
-    setIsOffline(currentIsOffline);
-
-    // 1. محاولة استرجاع الكاش الصالح (Cache-First)
-    if (!forceUpdate) {
-      const cachedEntry = cacheUtils.get<StoredPrayerData>(cacheKey, selectedCity.apiName);
-      
-      if (cachedEntry) {
-        setTimings(cachedEntry.data.timings);
-        setHijriDate(cachedEntry.data.hijriDate);
-        setLastUpdated(cachedEntry.timestamp);
-        setLoading(false);
-        
-        // إذا كنا غير متصلين، نعرض البيانات ولكن نعتبرها Stale لتفعيل البانر
-        // البانر يعتمد على isOffline لعرض التنبيه
-        setIsStale(false); // البيانات صالحة (< 24 ساعة)
-        return; 
-      }
-    }
-
-    // 2. إذا لم يوجد كاش صالح أو تم طلب تحديث، نحاول الاتصال بالشبكة
-    // إذا كنا نعلم أننا غير متصلين، نتجاوز المحاولة ونذهب للخطوة 3 مباشرة
-    if (currentIsOffline) {
-       handleOfflineFallback(cacheKey);
-       return;
-    }
-
-    try {
-      const response = await fetch(
-        `https://api.aladhan.com/v1/timingsByCity?city=${selectedCity.apiName}&country=Tunisia&method=2`
-      );
-      
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data: AlAdhanResponse = await response.json();
-      
-      if (data.code === 200) {
-        const fetchedTimings = data.data.timings;
-        const h = data.data.date.hijri;
-        const fetchedHijri = `${h.day} ${h.month.ar} ${h.year} هـ`;
-        const resultData: StoredPrayerData = { timings: fetchedTimings, hijriDate: fetchedHijri };
-
-        setTimings(fetchedTimings);
-        setHijriDate(fetchedHijri);
-        setLastUpdated(Date.now());
-        setIsStale(false);
-        setIsOffline(false);
-
-        // حفظ في الكاش الجديد
-        cacheUtils.set(cacheKey, resultData, selectedCity.apiName);
-      } else {
-        throw new Error('API Error');
-      }
-    } catch (err) {
-      console.error(err);
-      setIsOffline(true);
-      handleOfflineFallback(cacheKey);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCity]);
-
-  // 3. دالة مساعدة للتعامل مع البيانات القديمة
-  const handleOfflineFallback = (cacheKey: string) => {
-    const staleEntry = cacheUtils.getStale<StoredPrayerData>(cacheKey, selectedCity.apiName);
-    
-    if (staleEntry) {
-      setTimings(staleEntry.data.timings);
-      setHijriDate(staleEntry.data.hijriDate);
-      setLastUpdated(staleEntry.timestamp);
-      setIsStale(true); // بيانات قد تكون قديمة
-      // لا نضبط error هنا لأننا نعرض بيانات
-    } else {
-      setError('تعذر الاتصال بالخادم ولا توجد بيانات محفوظة.');
-      setTimings(null);
-    }
-    setLoading(false);
-  };
 
   useEffect(() => {
-    fetchTimings();
+    const fetchTimes = async () => {
+      if (!settings.location) {
+        setError(t('error_location_not_set'));
+        setLoading(false);
+        return;
+      }
 
-    const handleOnline = () => {
-      setIsOffline(false);
-      fetchTimings(true); // تحديث فوري عند عودة الاتصال
+      setLoading(true);
+      setError(null);
+      setDailyData(null);
+      setMonthlyData(null);
+      setIsRamadan(false);
+
+      try {
+        const { location, calculationMethod, asrMethod } = settings;
+        const month = currentDate.getMonth() + 1;
+        const year = currentDate.getFullYear();
+
+        const data = location.latitude 
+          ? await fetchPrayerTimesByCoords(location.latitude, location.longitude, calculationMethod, asrMethod, month, year)
+          : await fetchPrayerTimesByCity(location.city, location.country, calculationMethod, asrMethod, month, year);
+        
+        setMonthlyData(data);
+
+        const today = new Date();
+        if (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) {
+            const todaysData = data.find(d => Number(d.date.gregorian.day) === today.getDate());
+            if (todaysData) {
+                setDailyData(todaysData);
+                setIsRamadan(todaysData.date.hijri.month.number === 9);
+            } else {
+                 setError(t('error_find_times_today'));
+            }
+        } else {
+            setDailyData(data[0]);
+        }
+      } catch (err: any) {
+        setError(err.message || t('error_unknown_fetching'));
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const handleOffline = () => {
-      setIsOffline(true);
+    fetchTimes();
+  }, [settings.location, settings.calculationMethod, settings.asrMethod, currentDate, t]);
+
+  useEffect(() => {
+    if (!dailyData || new Date().getDate() !== Number(dailyData.date.gregorian.day)) {
+        setNextPrayerInfo(null);
+        setCurrentPrayerInfo(null);
+        return;
     };
+    
+    const timings = dailyData.timings;
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const mainIntervalId = setInterval(() => {
+      // If an iqama countdown is active, don't calculate the next prayer.
+      if (iqamaIntervalRef.current) {
+        setNextPrayerInfo(null);
+        return;
+      };
 
+      const now = new Date();
+      let nextPrayerName: keyof PrayerTimings | null = null;
+      let nextPrayerTime: Date | null = null;
+      let currentPrayerName: keyof PrayerTimings | null = null;
+      
+      const prayerOrderToCheck: (keyof PrayerTimings)[] = isRamadan
+        ? ['Imsak', 'Fajr', 'Sunrise', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+        : PRAYER_ORDER;
+
+      // Check for current and next prayer
+      for (const prayerName of prayerOrderToCheck) {
+        const prayerTimeStr = timings[prayerName];
+        if (!prayerTimeStr) continue;
+        const prayerDateTime = new Date(`${todayStr}T${String(prayerTimeStr).split(' ')[0]}:00`);
+        
+        if (prayerDateTime > now) {
+          if (!nextPrayerName) {
+            nextPrayerName = prayerName;
+            nextPrayerTime = prayerDateTime;
+          }
+        } else {
+          currentPrayerName = prayerName;
+        }
+      }
+      
+      // Handle the transition to Iqama countdown
+      if (
+        currentPrayerName &&
+        PRAYERS_WITH_ADHAN.includes(currentPrayerName as keyof Settings['adhanFor']) && // It's a prayer with Adhan/Iqama
+        currentPrayerInfo?.name !== currentPrayerName // It's a new prayer
+      ) {
+         const prayerTimeStr = timings[currentPrayerName as keyof PrayerTimings];
+         const prayerStartTime = new Date(`${todayStr}T${String(prayerTimeStr).split(' ')[0]}:00`);
+         const iqamaEndTime = new Date(prayerStartTime.getTime() + settings.iqamaTime * 60000);
+         
+         // Only trigger if we are still within the Iqama window to avoid re-triggering
+         if (now < iqamaEndTime) {
+            setCurrentPrayerInfo({ name: currentPrayerName });
+            setNextPrayerInfo(null); // Stop next prayer countdown
+
+            // Play Adhan sound if enabled for this specific prayer
+            const prayerKey = currentPrayerName as keyof Settings['adhanFor'];
+            if(settings.adhanFor[prayerKey] && settings.adhanMode !== 'silent') {
+                const selectedMuezzin = muezzins.find(m => m.id === settings.muezzin);
+                if (selectedMuezzin) {
+                    const audioUrl = selectedMuezzin.files[settings.adhanMode];
+                    if (audioUrl) {
+                      audioManager.play(audioUrl);
+                    }
+                }
+            }
+         }
+      }
+
+
+      // If after Isha, next prayer is Fajr (or Imsak) of the next day
+      if (!nextPrayerTime) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const nextPrayerOnDeck: keyof PrayerTimings = isRamadan ? 'Imsak' : 'Fajr';
+        nextPrayerName = nextPrayerOnDeck;
+        nextPrayerTime = new Date(`${tomorrowStr}T${String(timings[nextPrayerOnDeck]).split(' ')[0]}:00`);
+      }
+
+      if (nextPrayerName && nextPrayerTime) {
+        const diff = nextPrayerTime.getTime() - now.getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setNextPrayerInfo({
+          name: String(nextPrayerName),
+          countdown: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
+        });
+      } else {
+        setNextPrayerInfo(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(mainIntervalId);
+  }, [dailyData, settings, currentPrayerInfo, isRamadan]); // Simplified dependencies
+
+
+  useEffect(() => {
+    // If there's no current prayer or no daily data, do nothing and ensure any existing timer is cleaned up.
+    if (!currentPrayerInfo || !dailyData) {
+      return;
+    }
+
+    const prayerTimeStr = dailyData.timings[currentPrayerInfo.name as keyof PrayerTimings];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const prayerStartTime = new Date(`${todayStr}T${String(prayerTimeStr).split(' ')[0]}:00`);
+    const iqamaEndTime = new Date(prayerStartTime.getTime() + settings.iqamaTime * 60000);
+    
+    const intervalId = setInterval(() => {
+        const now = new Date();
+        const diff = iqamaEndTime.getTime() - now.getTime();
+
+        if (diff > 0) {
+            const minutes = Math.floor(diff / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            setIqamaCountdown(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+        } else {
+            // Timer finished, clear state, which will trigger this effect's cleanup
+            setCurrentPrayerInfo(null);
+            setIqamaCountdown(null);
+        }
+    }, 1000);
+    
+    iqamaIntervalRef.current = intervalId;
+
+    // Cleanup function: This is crucial. It runs when the component unmounts
+    // or when any dependency in the dependency array changes.
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      clearInterval(intervalId);
+      iqamaIntervalRef.current = null;
     };
-  }, [fetchTimings]);
-
-  return { 
-    timings, 
-    hijriDate, 
-    loading, 
-    error, 
-    isOffline, 
-    isStale, 
-    lastUpdated,
-    refetch: () => fetchTimings(true) 
+  }, [currentPrayerInfo, dailyData, settings.iqamaTime]);
+  
+  const changeMonth = (offset: number) => {
+      setCurrentDate(prev => {
+          const newDate = new Date(prev);
+          newDate.setDate(1);
+          newDate.setMonth(prev.getMonth() + offset);
+          return newDate;
+      });
   };
+
+  return { dailyData, monthlyData, loading, error, nextPrayerInfo, currentPrayerInfo, iqamaCountdown, isRamadan, currentDate, changeMonth };
 };

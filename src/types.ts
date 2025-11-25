@@ -1,4 +1,3 @@
-
 export interface PrayerTimings {
   Fajr: string;
   Sunrise: string;
@@ -7,98 +6,148 @@ export interface PrayerTimings {
   Sunset: string;
   Maghrib: string;
   Isha: string;
-  [key: string]: string;
+  Imsak: string;
+  Midnight: string;
+  Firstthird: string;
+  Lastthird: string;
 }
 
-export interface HijriDate {
+export interface HijriDateInfo {
   date: string;
+  format: string;
   day: string;
   weekday: {
-    ar: string;
     en: string;
+    ar: string;
   };
   month: {
     number: number;
     en: string;
+
     ar: string;
   };
   year: string;
 }
 
-export interface AlAdhanResponse {
-  code: number;
-  data: {
-    timings: PrayerTimings;
-    date: {
-      hijri: HijriDate;
-      gregorian: {
-        date: string;
-        weekday: { en: string };
-      };
+export interface GregorianDateInfo {
+    date: string;
+    format: string;
+    day: string;
+    weekday: {
+        en: string;
     };
-  };
+    month: {
+        number: number;
+        en: string;
+    };
+    year: string;
 }
 
-export interface CityOption {
-  nameAr: string;
-  apiName: string;
-}
-
-// إعدادات الإشعارات
-export interface PrayerNotificationSetting {
-  enabled: boolean;
-  preAdhanMinutes: number;
-}
-
-export interface NotificationSettings {
-  globalEnabled: boolean;
-  prayers: {
-    Fajr: PrayerNotificationSetting;
-    Sunrise: PrayerNotificationSetting;
-    Dhuhr: PrayerNotificationSetting;
-    Asr: PrayerNotificationSetting;
-    Maghrib: PrayerNotificationSetting;
-    Isha: PrayerNotificationSetting;
-    [key: string]: PrayerNotificationSetting;
-  };
-}
-
-// إعدادات الإقامة
-export interface IqamaSettings {
-  Fajr: number;
-  Dhuhr: number;
-  Asr: number;
-  Maghrib: number;
-  Isha: number;
-  [key: string]: number;
-}
-
-// Calendar API Types
-export interface CalendarData {
+export interface DailyPrayerData {
   timings: PrayerTimings;
   date: {
-    gregorian: {
-      date: string;
-      weekday: { en: string };
-    };
-    hijri: {
-      date: string;
-      day: string;
-      weekday: { ar: string };
-      month: { ar: string };
-      year: string;
-    };
+    readable: string;
+    timestamp: string;
+    hijri: HijriDateInfo;
+    gregorian: GregorianDateInfo;
   };
+  meta: any;
 }
 
-export interface AlAdhanCalendarResponse {
+export interface AlAdhanMonthlyResponse {
   code: number;
-  data: CalendarData[];
+  status: string;
+  data: DailyPrayerData[];
 }
 
-export interface AdhanSound {
+export interface AlAdhanResponse {
+  code: number;
+  status: string;
+  data: DailyPrayerData;
+}
+
+
+export interface Location {
+  latitude: number | null;
+  longitude: number | null;
+  city: string;
+  country: string;
+}
+
+export interface Settings {
+  location: Location | null;
+  calculationMethod: number;
+  asrMethod: number;
+  iqamaTime: number; // in minutes
+  muezzin: string;
+  adhanFor: {
+    Fajr: boolean;
+    Dhuhr: boolean;
+    Asr: boolean;
+    Maghrib: boolean;
+    Isha: boolean;
+  };
+  adhanVolume: number; // Volume from 0.0 to 1.0
+  adhanMode: 'full' | 'takbeer' | 'silent'; // Type of adhan sound
+}
+
+// i18n Types
+export type Locale = 'ar' | 'en';
+
+export interface LocaleContextType {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+}
+
+// Adhkar Types
+export interface Translatable {
+  ar: string;
+  en: string;
+}
+
+export interface Dhikr {
+  id: number;
+  text: Translatable;
+  count?: number;
+  reference: Translatable;
+}
+
+export interface AdhkarCategory {
   id: string;
+  title: Translatable;
+  items: Dhikr[];
+  audioSrc?: string;
+}
+
+// Quran Types
+export interface SurahInfo {
+  number: number;
   name: string;
-  url: string;
-  isFajr?: boolean;
+  englishName: string;
+  englishNameTranslation: string;
+  revelationType: 'Meccan' | 'Medinan';
+  numberOfAyahs: number;
+}
+
+export interface Ayah {
+  number: number;
+  text: string;
+  numberInSurah: number;
+  tafseer?: string; // Tafseer text is optional and will be merged in
+}
+
+export interface Tafseer {
+  surah: number;
+  ayah: number;
+  text: string;
+}
+
+export interface SurahDetailData extends SurahInfo {
+  ayahs: Ayah[];
+}
+
+// Tasbih Types
+export interface TasbihSession {
+  date: string;
+  count: number;
 }

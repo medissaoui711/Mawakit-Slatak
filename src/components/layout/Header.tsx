@@ -1,185 +1,68 @@
-
-import React, { useState } from 'react';
-import { RefreshCw, Moon, Sun, Settings, ChevronDown, Compass, Calendar } from 'lucide-react';
-import { CITIES, APP_LOGO_URL } from '../../constants/data';
-import { usePrayerData } from '../../context/PrayerContext';
-import { useTheme } from '../../context/ThemeContext';
-import { getArabicDateString } from '../../utils';
+import React from 'react';
+import { useFormattedDates } from '../../utils/dateUtils';
 import NotificationControl from '../common/NotificationControl';
-import RamadanImsakiya from '../RamadanImsakiya';
+import { useTranslation, useLocale } from '../../context/LocaleContext';
 
-const Header: React.FC = () => {
-  const { 
-    selectedCity, setSelectedCity, 
-    loading, refetch, 
-    hijriDate, setIsSettingsOpen,
-    setIsQiblaOpen
-  } = usePrayerData();
-  
-  const { isDark, toggleDarkMode } = useTheme();
-  const [isImsakiyaOpen, setIsImsakiyaOpen] = useState(false);
+interface HeaderProps {
+    locationName: string;
+    onSettingsClick: () => void;
+}
 
-  const today = new Date();
-  const gregorianDateString = getArabicDateString(today);
+const DateDisplay: React.FC = () => {
+    const { locale } = useLocale();
+    const { gregorianDate, hijriDate } = useFormattedDates(locale);
 
-  // Reusable Components for Layout Flexibility
-  const ActionButtons = () => (
-    <div className="flex items-center gap-1 sm:gap-2 bg-black/20 p-1.5 rounded-2xl backdrop-blur-sm">
-      <button 
-        onClick={() => refetch()}
-        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
-        aria-label="تحديث"
-        disabled={loading}
-      >
-         <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-      </button>
-      
-      {/* Calendar / Imsakiya Button */}
-      <button
-        onClick={() => setIsImsakiyaOpen(true)}
-        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
-        aria-label="الممسكة"
-      >
-        <Calendar size={20} />
-      </button>
+    if (locale === 'ar') {
+        return (
+            <div className="info-card date-card">
+                <span className="date-primary">{hijriDate}</span>
+                <span className="date-secondary">الموافق {gregorianDate}</span>
+            </div>
+        );
+    }
 
-      {/* Qibla Button */}
-      <button
-        onClick={() => setIsQiblaOpen(true)}
-        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
-        aria-label="القبلة"
-      >
-        <Compass size={20} />
-      </button>
-
-      <button
-        onClick={() => setIsSettingsOpen(true)}
-        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-white/90"
-        aria-label="الإعدادات"
-      >
-        <Settings size={20} />
-      </button>
-      <div className="w-px h-6 bg-white/10 mx-1"></div>
-      <button 
-        onClick={(e) => { e.stopPropagation(); toggleDarkMode(); }}
-        className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-xl hover:bg-white/10 active:bg-white/20 transition-colors text-yellow-300"
-        aria-label="تغيير الوضع الليلي"
-      >
-        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
-    </div>
-  );
-
-  const LogoCircle = ({ sizeClass = "w-12 h-12 md:w-16 md:h-16" }) => (
-    <div className={`relative ${sizeClass} rounded-xl shadow-2xl overflow-hidden flex items-center justify-center bg-white group border-[3px] border-white ring-1 ring-black/10`}>
-        <img 
-          src={APP_LOGO_URL}
-          alt="Mawakit Tunisia Logo"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => {
-            // Fallback if icon fails to load
-            e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/5982/5982090.png"; 
-          }}
-        />
-    </div>
-  );
-
-  const CityDateSelector = () => (
-    <div className="flex flex-col items-center w-full md:w-auto">
-       <div className="relative w-full max-w-xs md:max-w-none group touch-manipulation">
-          <select 
-            value={selectedCity.apiName}
-            onChange={(e) => {
-              const city = CITIES.find(c => c.apiName === e.target.value);
-              if (city) setSelectedCity(city);
-            }}
-            className="appearance-none w-full bg-red-950/40 dark:bg-black/40 hover:bg-red-950/60 dark:hover:bg-black/60 text-white border border-white/10 backdrop-blur-md rounded-2xl pl-4 pr-12 py-3.5 text-lg font-bold text-center outline-none focus:ring-2 focus:ring-white/30 cursor-pointer transition-all shadow-lg"
-          >
-            {CITIES.map(c => (
-              <option key={c.apiName} value={c.apiName} className="text-gray-900 bg-white p-2">{c.nameAr}</option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-white/70 group-hover:text-white transition-colors">
-             <ChevronDown size={22} strokeWidth={3} />
-          </div>
+    return (
+        <div className="info-card date-card">
+            <span className="date-primary">{gregorianDate}</span>
+            <span className="date-secondary">{hijriDate}</span>
         </div>
+    );
+};
 
-        <div className="mt-3 flex flex-col items-center gap-1">
-          <h2 className="text-sm sm:text-base font-medium text-red-100/90">
-            {gregorianDateString} 
-          </h2>
-          <span className="text-xs sm:text-sm bg-white/10 px-3 py-0.5 rounded-full text-white/80 font-mono">
-            {hijriDate}
-          </span>
-        </div>
-    </div>
-  );
+
+const Header: React.FC<HeaderProps> = ({ locationName, onSettingsClick }) => {
+  const { t } = useTranslation();
 
   return (
-    <>
-    <header className="bg-gradient-to-br from-red-900 via-red-800 to-red-950 dark:from-slate-950 dark:via-slate-900 dark:to-black text-white pb-12 md:pb-16 pt-safe-top px-4 sm:px-8 rounded-b-[2rem] md:rounded-b-[3rem] shadow-2xl transition-all duration-500 relative overflow-hidden">
-      
-      {/* Decorative Background Pattern */}
-      <div 
-        className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none bg-cover bg-center"
-        style={{ 
-          backgroundImage: "url('https://www.transparenttextures.com/patterns/arabesque.png')",
-          willChange: 'opacity'
-        }}
-      ></div>
-
-      <div className="relative z-10 w-full max-w-5xl mx-auto pt-2 md:pt-4">
-        
-        {/* Mobile Layout (< md) */}
-        <div className="md:hidden flex flex-col gap-4">
-           {/* Top Row: Controls (Right) & Logo (Left) */}
-           <div className="flex justify-between items-center px-1">
-              <ActionButtons />
-              <div className="flex items-center">
-                <LogoCircle sizeClass="w-12 h-12" />
-              </div>
-           </div>
-           
-           {/* Center Row: City & Date */}
-           <CityDateSelector />
-           
-           {/* Notification Control Fallback */}
-           <div className="flex justify-center mt-1">
-             <NotificationControl />
-           </div>
+    <header className="header">
+        <div className="header-controls">
+            <div className="header-controls-right">
+                <button onClick={onSettingsClick} className="header-button" aria-label={t('settings')}>
+                    <svg className="header-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066 2.573c-.94-1.543.826 3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+            </div>
         </div>
 
-        {/* Desktop Layout (>= md) */}
-        <div className="hidden md:flex justify-between items-start relative min-h-[100px]">
-           {/* Left: Controls */}
-           <div className="flex items-center gap-3 z-20">
-              <ActionButtons />
-              <NotificationControl />
-           </div>
-
-           {/* Center: City & Date (Absolute Positioned) */}
-           <div className="absolute left-1/2 top-0 -translate-x-1/2 z-10">
-              <CityDateSelector />
-           </div>
-
-           {/* Right: Logo */}
-           <div className="flex flex-col items-end z-20">
-              <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <h1 className="text-xl font-bold leading-none tracking-tight">مواقيت الصلاة</h1>
-                    <span className="text-[10px] text-red-200 uppercase tracking-widest opacity-70">Tunisia</span>
-                  </div>
-                  <LogoCircle sizeClass="w-16 h-16" />
-              </div>
-           </div>
+        <div className="header-content">
+            <svg className="mosque-icon" viewBox="0 0 512 512" fill="white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M256,72 C154.2,72 72,154.2 72,256 C72,357.8 154.2,440 256,440 C357.8,440 440,357.8 440,256 C440,154.2 357.8,72 256,72 Z M256,408 C172.2,408 104,339.8 104,256 C104,172.2 172.2,104 256,104 C339.8,104 408,172.2 408,256 C408,339.8 339.8,408 256,408 Z"/>
+                <path stroke="white" strokeWidth="20" fill="none" strokeLinecap="round" d="M256 256 V 110"/>
+                <path stroke="white" strokeWidth="20" fill="none" strokeLinecap="round" d="M256 256 L 334 301"/>
+                <circle cx="256" cy="256" r="14"/>
+                <path stroke="white" strokeWidth="12" strokeLinecap="round" d="M416 256h-16 M359.5 359.5l-11.3-11.3 M256 416v-16 M152.5 359.5l11.3-11.3 M96 256h16 M152.5 152.5l11.3 11.3 M256 96v16 M359.5 152.5l-11.3 11.3"/>
+            </svg>
+            <h1 className="title">{t('app_title')}</h1>
+            
+            <div className="info-card location-card">
+                <svg fill="currentColor" width="20" height="20" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"></path></svg>
+                <span>{locationName}</span>
+            </div>
+            
+            <DateDisplay />
+            
+            <NotificationControl />
         </div>
-
-      </div>
     </header>
-    
-    {/* Imsakiya Modal */}
-    <RamadanImsakiya isOpen={isImsakiyaOpen} onClose={() => setIsImsakiyaOpen(false)} />
-    </>
   );
 };
 

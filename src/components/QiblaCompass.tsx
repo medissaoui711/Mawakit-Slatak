@@ -1,129 +1,209 @@
-
-import React from 'react';
-import { Compass, MapPin, Navigation, AlertTriangle } from 'lucide-react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQibla } from '../hooks/useQibla';
+import { Location } from '../types';
+import { useTranslation } from '../context/LocaleContext';
 
-interface QiblaCompassProps {
-  isOpen: boolean;
-  onClose: () => void;
+const KaabaIconSVG = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+        <path fillRule="evenodd" d="M3 5.25A2.25 2.25 0 0 1 5.25 3h13.5A2.25 2.25 0 0 1 21 5.25v13.5A2.25 2.25 0 0 1 18.75 21H5.25A2.25 2.25 0 0 1 3 18.75V5.25ZM6 5.25a.75.75 0 0 0-.75.75v12.75c0 .414.336.75.75.75h12a.75.75 0 0 0 .75-.75V6a.75.75 0 0 0-.75-.75H6Zm3.75 3a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" />
+    </svg>
+);
+
+
+// --- Standard Compass Component (Luxury Watch Style) ---
+interface StandardCompassProps {
+    onSwitchToAR: () => void;
+    qiblaDirection: number | null;
+    deviceAngle: number | null;
+    sensorError: string | null;
 }
 
-const QiblaCompass: React.FC<QiblaCompassProps> = ({ isOpen, onClose }) => {
-  const { 
-    qiblaAngle, 
-    compassHeading, 
-    permissionGranted, 
-    requestCompassPermission,
-    error 
-  } = useQibla();
+const StandardCompass: React.FC<StandardCompassProps> = ({ onSwitchToAR, qiblaDirection, deviceAngle, sensorError }) => {
+    const dialRotation = deviceAngle !== null ? -deviceAngle : 0;
+    const qiblaMarkerInitialRotation = qiblaDirection !== null ? qiblaDirection : 0;
+    const { t } = useTranslation();
+    
+    const isAligned = useMemo(() => {
+        if (qiblaDirection === null || deviceAngle === null) return false;
+        const diff = Math.abs(qiblaDirection - deviceAngle);
+        return diff < 5 || diff > 355; // aligned if within ~5 degrees
+    }, [qiblaDirection, deviceAngle]);
 
-  if (!isOpen) return null;
+    const renderContent = () => {
+        if (sensorError) {
+            return <p className="error">{sensorError}</p>;
+        }
+        if (qiblaDirection === null || deviceAngle === null) {
+            return (
+                <>
+                    <div className="spinner" style={{borderColor: '#374151', borderBottomColor: '#d62828'}}></div>
+                    <p>{t('calibrating_compass')}</p>
+                </>
+            );
+        }
 
-  // حساب زاوية دوران السهم (الفرق بين القبلة واتجاه الهاتف)
-  // عندما يكون الهاتف موجهاً للقبلة، يجب أن يكون الدوران 0
-  // Rotation Logic: We rotate the DISC opposite to heading so North stays Up visually, 
-  // OR we rotate the NEEDLE.
+        return (
+            <>
+                <div className="digital-readout-lux">
+                    <span>{t('qibla')}: {Math.round(qiblaDirection)}°</span>
+                    <span>{t('device')}: {Math.round(deviceAngle)}°</span>
+                </div>
+
+                <div className="compass-bezel">
+                    <div className="heading-marker-lux"></div>
+                    <div className="compass-dial-lux" style={{ transform: `rotate(${dialRotation}deg)` }}>
+                        <div className="north-arrow"></div>
+                        <div 
+                            className={`qibla-icon-lux ${isAligned ? 'glow' : ''}`}
+                            style={{ transform: `rotate(${qiblaMarkerInitialRotation}deg) translateY(-120px)` }}
+                        >
+                            <KaabaIconSVG />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="compass-instructions">
+                    <p>{t('compass_instructions')}</p>
+                </div>
+                <button onClick={onSwitchToAR} className="ar-switch-button">
+                    {t('try_ar_compass')}
+                </button>
+            </>
+        );
+    }
+    
+    return renderContent();
+};
+
+
+// --- AR Compass Component (Immersive Experience) ---
+interface ARCompassProps {
+  onClose: () => void;
+  qiblaDirection: number | null;
+  distanceToKaaba: number | null;
+  deviceAngle: number | null;
+  sensorError: string | null;
+}
+
+const ARCompass: React.FC<ARCompassProps> = ({ onClose, qiblaDirection, distanceToKaaba, deviceAngle, sensorError }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const HORIZONTAL_FOV = 60; // Estimated field of view for mobile cameras
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const startCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {
+        setCameraError(t('error_camera_permission'));
+      }
+    };
+    startCamera();
+    return () => stream?.getTracks().forEach(track => track.stop());
+  }, [t]);
   
-  // Approach: Rotate the entire COMPASS DISC so North matches real North relative to phone top.
-  // Then place Qibla marker at `qiblaAngle` degrees on that disc.
-  const discRotation = -compassHeading; 
+  const finalError = cameraError || sensorError;
 
-  const isAligned = Math.abs(((qiblaAngle - compassHeading + 360) % 360)) < 5;
+  const renderARContent = () => {
+    if (finalError) return <p className="error" style={{ background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '12px' }}>{finalError}</p>;
+    if (qiblaDirection === null || deviceAngle === null) {
+      return (
+        <div style={{ background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '12px' }}>
+          <p>{t('determining_direction')}</p>
+        </div>
+      );
+    }
+
+    let angleDiff = qiblaDirection - deviceAngle;
+    // Normalize angle to be between -180 and 180
+    if (angleDiff > 180) angleDiff -= 360;
+    if (angleDiff < -180) angleDiff += 360;
+    
+    const isVisible = Math.abs(angleDiff) < HORIZONTAL_FOV / 2;
+    const isLockedOn = Math.abs(angleDiff) < 2.5; // Tighter threshold for lock-on
+    const screenXPercent = 50 + (angleDiff / (HORIZONTAL_FOV / 2)) * 50;
+
+    return (
+      <div className="ar-content-wrapper">
+        {!isVisible && angleDiff > 0 && <div className="ar-guidance-arrow right">{'<'}</div>}
+        
+        <div
+          className={`ar-qibla-target ${isLockedOn ? 'locked-on' : ''}`}
+          style={{ 
+            left: `${screenXPercent}%`,
+            opacity: isVisible ? 1 : 0
+          }}
+        >
+            <div className="ar-lockon-circle"></div>
+            <div className="ar-qibla-icon"><KaabaIconSVG /></div>
+            {distanceToKaaba !== null && (
+                <div className="ar-distance-display">{Math.round(distanceToKaaba)} {t('km')}</div>
+            )}
+        </div>
+
+        {!isVisible && angleDiff < 0 && <div className="ar-guidance-arrow left">{'>'}</div>}
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-8 shadow-2xl text-center overflow-hidden">
-        
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full"
-        >
-          ✕
-        </button>
-
-        <h2 className="text-2xl font-bold mb-2 text-gray-800 dark:text-white flex items-center justify-center gap-2">
-          <Navigation className="text-red-600" />
-          القبلة
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">
-          قم بمعايرة الهاتف بتحريكه على شكل رقم 8
-        </p>
-
-        {error ? (
-          <div className="bg-red-100 text-red-700 p-4 rounded-xl mb-6 flex flex-col items-center gap-2">
-            <AlertTriangle />
-            <span>{error}</span>
-          </div>
-        ) : !permissionGranted ? (
-          <div className="py-12">
-            <button
-              onClick={requestCompassPermission}
-              className="bg-brand-light dark:bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
-            >
-              تفعيل البوصلة
-            </button>
-            <p className="mt-4 text-xs text-gray-400">يتطلب السماح بالوصول لمستشعرات الجهاز</p>
-          </div>
-        ) : (
-          <div className="relative w-64 h-64 mx-auto mb-8">
-            {/* Compass Disc */}
-            <div 
-              className="w-full h-full rounded-full border-4 border-gray-200 dark:border-slate-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-900 shadow-inner relative transition-transform duration-300 ease-out"
-              style={{ transform: `rotate(${discRotation}deg)` }}
-            >
-              {/* North Marker */}
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                <span className="text-red-600 font-bold text-lg">N</span>
-                <div className="w-1 h-2 bg-red-600 rounded-full"></div>
-              </div>
-              
-              {/* Directions */}
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">E</span>
-              <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-bold text-gray-400">S</span>
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">W</span>
-
-              {/* Kaaba Icon / Qibla Marker placed at Qibla Angle */}
-              <div 
-                className="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ transform: `rotate(${qiblaAngle}deg)` }}
-              >
-                 {/* The marker is placed at the TOP (0 deg) of this container, 
-                     but the container is rotated to qiblaAngle. 
-                     So relative to North (which is 0 on the disc), this points to Qibla. */}
-                 <div className="absolute -top-1 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                    <div className="relative">
-                        <div className="w-8 h-8 bg-black border-2 border-yellow-500 rounded-md shadow-lg z-10 relative flex items-center justify-center">
-                           <div className="w-full h-[1px] bg-yellow-500 absolute top-2"></div>
-                        </div>
-                        {/* Arrow pointing to Kaaba */}
-                        <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-black absolute -top-3 left-1/2 -translate-x-1/2"></div>
-                    </div>
-                 </div>
-                 
-                 {/* Line to center */}
-                 <div className="absolute top-8 left-1/2 -translate-x-1/2 w-[2px] h-[calc(50%-32px)] bg-yellow-500/30 dashed"></div>
-              </div>
-            </div>
-
-            {/* Phone indicator (Static center) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full border-2 border-white z-20 shadow-md"></div>
-            
-            {/* Crosshair */}
-            <div className="absolute inset-0 pointer-events-none opacity-20">
-                <div className="absolute top-1/2 left-0 right-0 h-px bg-gray-500"></div>
-                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-500"></div>
-            </div>
-          </div>
-        )}
-
-        {permissionGranted && (
-          <div className={`text-lg font-bold transition-colors ${isAligned ? 'text-green-600' : 'text-gray-600 dark:text-gray-300'}`}>
-            {isAligned ? 'أنت تواجه القبلة الآن' : `${Math.round(qiblaAngle)}° درجة عن الشمال`}
-          </div>
-        )}
-      </div>
+    <div className="ar-compass-overlay">
+      <video ref={videoRef} className="qibla-video" autoPlay playsInline muted></video>
+      <button onClick={onClose} className="compass-close-button">&times;</button>
+      {renderARContent()}
     </div>
   );
 };
 
-export default QiblaCompass;
+
+// --- Container Component (Main Export) ---
+interface QiblaCompassContainerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  userLocation: Location | null;
+}
+
+const QiblaCompassContainer: React.FC<QiblaCompassContainerProps> = ({ isOpen, onClose, userLocation }) => {
+  const [mode, setMode] = useState<'standard' | 'ar'>('standard');
+  const { qiblaDirection, distanceToKaaba, deviceAngle, sensorError } = useQibla(userLocation);
+  
+  useEffect(() => {
+    if (!isOpen) {
+      const timer = setTimeout(() => setMode('standard'), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  if (mode === 'ar') {
+    return (
+        <ARCompass
+          onClose={onClose}
+          qiblaDirection={qiblaDirection}
+          distanceToKaaba={distanceToKaaba}
+          deviceAngle={deviceAngle}
+          sensorError={sensorError}
+        />
+    )
+  }
+
+  return (
+    <div className={`compass-container-overlay ${isOpen ? 'open' : ''}`}>
+      <button onClick={onClose} className="compass-close-button">&times;</button>
+      <StandardCompass
+          onSwitchToAR={() => setMode('ar')}
+          qiblaDirection={qiblaDirection}
+          deviceAngle={deviceAngle}
+          sensorError={sensorError}
+      />
+    </div>
+  );
+};
+
+export default QiblaCompassContainer;
