@@ -485,11 +485,11 @@
         left: 50%;
         transform: translate(-50%, -50%) scale(0.95);
         background-color: var(--card-white);
-        padding: 24px;
         border-radius: 16px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         width: 90%;
         max-width: 400px;
+        max-height: 85vh; /* Default constraint */
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
@@ -503,21 +503,38 @@
         pointer-events: auto;
       }
 
+      .modal-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--background-grey);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+      .close-icon-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        padding: 0;
+        line-height: 1;
+      }
+
       .modal-scroll-container {
         flex-grow: 1;
         overflow-y: auto;
-        margin-bottom: 16px;
-        padding-right: 10px; /* space for scrollbar */
-      }
-      body[dir="rtl"] .modal-scroll-container {
-        padding-right: 0;
-        padding-left: 10px;
+        padding: 24px;
       }
 
-      .modal-content h2 {
-        margin: 0 0 24px 0;
-        text-align: center;
-        font-size: 22px;
+      .modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--background-grey);
+        flex-shrink: 0;
       }
 
       .close-button {
@@ -529,8 +546,7 @@
         cursor: pointer;
         font-size: 16px;
         font-weight: 700;
-        margin-top: auto; /* Push to bottom */
-        flex-shrink: 0;
+        width: 100%;
       }
       
       .setting-item {
@@ -625,6 +641,23 @@
         background-color: var(--qibla-turquoise) !important;
         color: white !important;
         border: none !important;
+      }
+      
+      /* Mobile Overrides for Modal */
+      @media (max-width: 600px) {
+        .modal-content {
+          width: 100% !important;
+          height: 100% !important;
+          max-width: none !important;
+          max-height: none !important;
+          top: 0 !important;
+          left: 0 !important;
+          transform: none !important;
+          border-radius: 0 !important;
+        }
+        .modal-content.open {
+          transform: none !important;
+        }
       }
       
       /* Qibla Compass Styles */

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { useSettings } from '../../context/PrayerContext';
 import { calculationMethods, muezzins } from '../../constants/data';
@@ -93,7 +94,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenPr
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <h2 id="modal-title">{t('settings')}</h2>
+        <div className="modal-header">
+            <h2 id="modal-title">{t('settings')}</h2>
+            <button className="close-icon-button" onClick={onClose}>&times;</button>
+        </div>
         
         <div className="modal-scroll-container">
           {/* General Settings */}
@@ -254,7 +258,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onOpenPr
           </div>
         </div>
 
-        <button className="close-button" onClick={onClose}>{t('close')}</button>
+        <div className="modal-footer">
+            <button className="close-button" onClick={onClose}>{t('close')}</button>
+        </div>
       </div>
     </>
   );
