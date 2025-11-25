@@ -1,3 +1,4 @@
+
 class AudioManager {
   private static instance: AudioManager;
   private audio: HTMLAudioElement;
@@ -68,6 +69,15 @@ class AudioManager {
   
   getAudioElement(): HTMLAudioElement {
     return this.audio;
+  }
+
+  unlock() {
+    // Play a silent sound to unlock audio on mobile/browsers
+    this.audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    this.audio.play().then(() => {
+        this.audio.pause();
+        this.audio.currentTime = 0;
+    }).catch(e => console.log("Audio unlock failed", e));
   }
 }
 

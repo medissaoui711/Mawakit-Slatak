@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { usePrayerTimes } from './hooks/usePrayerTimes';
 import Header from './components/layout/Header';
@@ -9,6 +10,7 @@ import HadithOfTheDay from './components/adhkar/HadithOfTheDay';
 import { displayPrayers } from './constants/data';
 import { useSettings } from './context/PrayerContext';
 import { useTranslation, useLocale } from './context/LocaleContext';
+import audioManager from './utils/audioManager';
 
 // Lazy load modals and views
 const SettingsModal = React.lazy(() => import('./components/settings/SettingsModal'));
@@ -18,6 +20,7 @@ const AdhkarModal = React.lazy(() => import('./components/adhkar/AdhkarModal'));
 const QuranView = React.lazy(() => import('./components/quran/QuranView'));
 const FloatingActionButton = React.lazy(() => import('./components/layout/FloatingActionButton'));
 const LocationPrompt = React.lazy(() => import('./components/common/LocationPrompt'));
+const AudioPermissionModal = React.lazy(() => import('./components/common/AudioPermissionModal'));
 
 
 // --- Privacy Policy Modal Component ---
@@ -50,11 +53,6 @@ const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({ isOpen, onClose
                 <label style={{ fontSize: '16px', color: 'var(--text-dark)' }}>{t('privacy_policy_location_title')}</label>
                 <small style={{ display: 'block', fontSize: '14px', lineHeight: '1.6' }}>{t('privacy_policy_location_desc')}</small>
             </div>
-
-            <div className="setting-item">
-                <label style={{ fontSize: '16px', color: 'var(--text-dark)' }}>{t('privacy_policy_camera_title')}</label>
-                <small style={{ display: 'block', fontSize: '14px', lineHeight: '1.6' }}>{t('privacy_policy_camera_desc')}</small>
-            </div>
             
             <div className="setting-item">
                 <label style={{ fontSize: '16px', color: 'var(--text-dark)' }}>{t('privacy_policy_storage_title')}</label>
@@ -78,6 +76,7 @@ const App: React.FC = () => {
   const [isAdhkarOpen, setAdhkarOpen] = useState(false);
   const [isQuranOpen, setQuranOpen] = useState(false);
   const [isPrivacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
+  const [showAudioPermission, setShowAudioPermission] = useState(false);
 
 
   const { settings, updateLocationName, permissionStatus } = useSettings();
@@ -94,6 +93,19 @@ const App: React.FC = () => {
       updateLocationName(locale);
     }
   }, [locale, updateLocationName, settings.location?.latitude, settings.location?.longitude]);
+
+  useEffect(() => {
+    const audioPermission = localStorage.getItem('audioPermissionGranted');
+    if (!audioPermission) {
+      setShowAudioPermission(true);
+    }
+  }, []);
+
+  const handleAudioEnable = () => {
+    audioManager.unlock();
+    localStorage.setItem('audioPermissionGranted', 'true');
+    setShowAudioPermission(false);
+  };
 
   const handleOpenSettings = () => {
     if (document.activeElement instanceof HTMLButtonElement) {
@@ -206,6 +218,9 @@ const App: React.FC = () => {
       {isPrivacyPolicyOpen && <PrivacyPolicyModal isOpen={isPrivacyPolicyOpen} onClose={() => setPrivacyPolicyOpen(false)} />}
       
       <Suspense fallback={<div />}>
+        {showAudioPermission && (
+            <AudioPermissionModal onEnable={handleAudioEnable} />
+        )}
         {isSettingsOpen && (
           <SettingsModal 
             isOpen={isSettingsOpen} 

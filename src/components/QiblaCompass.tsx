@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQibla } from '../hooks/useQibla';
 import { Location } from '../types';
 import { useTranslation } from '../context/LocaleContext';
@@ -10,15 +11,14 @@ const KaabaIconSVG = () => (
 );
 
 
-// --- Standard Compass Component (Luxury Watch Style) ---
+// --- Standard Compass Component ---
 interface StandardCompassProps {
-    onSwitchToAR: () => void;
     qiblaDirection: number | null;
     deviceAngle: number | null;
     sensorError: string | null;
 }
 
-const StandardCompass: React.FC<StandardCompassProps> = ({ onSwitchToAR, qiblaDirection, deviceAngle, sensorError }) => {
+const StandardCompass: React.FC<StandardCompassProps> = ({ qiblaDirection, deviceAngle, sensorError }) => {
     const dialRotation = deviceAngle !== null ? -deviceAngle : 0;
     const qiblaMarkerInitialRotation = qiblaDirection !== null ? qiblaDirection : 0;
     const { t } = useTranslation();
@@ -65,9 +65,6 @@ const StandardCompass: React.FC<StandardCompassProps> = ({ onSwitchToAR, qiblaDi
                 <div className="compass-instructions">
                     <p>{t('compass_instructions')}</p>
                 </div>
-                <button onClick={onSwitchToAR} className="ar-switch-button">
-                    {t('try_ar_compass')}
-                </button>
             </>
         );
     }
@@ -75,91 +72,124 @@ const StandardCompass: React.FC<StandardCompassProps> = ({ onSwitchToAR, qiblaDi
     return renderContent();
 };
 
-
-// --- AR Compass Component (Immersive Experience) ---
+// --- AR Compass Component ---
 interface ARCompassProps {
-  onClose: () => void;
-  qiblaDirection: number | null;
-  distanceToKaaba: number | null;
-  deviceAngle: number | null;
-  sensorError: string | null;
+    qiblaDirection: number | null;
+    deviceAngle: number | null;
 }
 
-const ARCompass: React.FC<ARCompassProps> = ({ onClose, qiblaDirection, distanceToKaaba, deviceAngle, sensorError }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const HORIZONTAL_FOV = 60; // Estimated field of view for mobile cameras
-  const { t } = useTranslation();
+const ARCompass: React.FC<ARCompassProps> = ({ qiblaDirection, deviceAngle }) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [cameraError, setCameraError] = useState<string | null>(null);
+    const { t } = useTranslation();
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const startCamera = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {
-        setCameraError(t('error_camera_permission'));
-      }
+    useEffect(() => {
+        let stream: MediaStream | null = null;
+
+        const startCamera = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (err) {
+                console.error("Camera error:", err);
+                setCameraError(t('ar_permission_denied'));
+            }
+        };
+
+        startCamera();
+
+        return () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, [t]);
+
+    // Calculate position of the Kaaba target on screen
+    const getTargetStyle = () => {
+        if (qiblaDirection === null || deviceAngle === null) return { display: 'none' };
+
+        // Difference between Qibla direction and where phone is pointing
+        let diff = qiblaDirection - deviceAngle;
+        // Normalize to -180 to 180
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+
+        // Assume approx 60 degree horizontal FOV for phone camera
+        const fov = 60; 
+        // Map degrees to horizontal percentage (50% is center)
+        // If diff is 0, left is 50%. If diff is -30, left is 0%. If diff is +30, left is 100%.
+        let leftPercent = 50 + (diff / (fov / 2)) * 50;
+        
+        // Clamp for when target is off-screen, but we want to show arrows
+        const isOffScreenLeft = leftPercent < 0;
+        const isOffScreenRight = leftPercent > 100;
+        
+        return {
+            leftPercent,
+            isOffScreenLeft,
+            isOffScreenRight,
+            isAligned: Math.abs(diff) < 5
+        };
     };
-    startCamera();
-    return () => stream?.getTracks().forEach(track => track.stop());
-  }, [t]);
-  
-  const finalError = cameraError || sensorError;
 
-  const renderARContent = () => {
-    if (finalError) return <p className="error" style={{ background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '12px' }}>{finalError}</p>;
-    if (qiblaDirection === null || deviceAngle === null) {
-      return (
-        <div style={{ background: 'rgba(0,0,0,0.7)', padding: '20px', borderRadius: '12px' }}>
-          <p>{t('determining_direction')}</p>
-        </div>
-      );
+    const { leftPercent, isOffScreenLeft, isOffScreenRight, isAligned } = getTargetStyle();
+
+    if (cameraError) {
+        return <div className="error" style={{color: 'white', textAlign: 'center', marginTop: '50%'}}>{cameraError}</div>;
     }
 
-    let angleDiff = qiblaDirection - deviceAngle;
-    // Normalize angle to be between -180 and 180
-    if (angleDiff > 180) angleDiff -= 360;
-    if (angleDiff < -180) angleDiff += 360;
-    
-    const isVisible = Math.abs(angleDiff) < HORIZONTAL_FOV / 2;
-    const isLockedOn = Math.abs(angleDiff) < 2.5; // Tighter threshold for lock-on
-    const screenXPercent = 50 + (angleDiff / (HORIZONTAL_FOV / 2)) * 50;
-
     return (
-      <div className="ar-content-wrapper">
-        {!isVisible && angleDiff > 0 && <div className="ar-guidance-arrow right">{'<'}</div>}
-        
-        <div
-          className={`ar-qibla-target ${isLockedOn ? 'locked-on' : ''}`}
-          style={{ 
-            left: `${screenXPercent}%`,
-            opacity: isVisible ? 1 : 0
-          }}
-        >
-            <div className="ar-lockon-circle"></div>
-            <div className="ar-qibla-icon"><KaabaIconSVG /></div>
-            {distanceToKaaba !== null && (
-                <div className="ar-distance-display">{Math.round(distanceToKaaba)} {t('km')}</div>
-            )}
+        <div className="ar-compass-container">
+            <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="ar-video-background"
+            />
+            <div className="ar-compass-overlay open">
+                <div className="ar-status-text">
+                    {qiblaDirection !== null && deviceAngle !== null 
+                        ? `${t('qibla')}: ${Math.round(qiblaDirection)}° | ${t('device')}: ${Math.round(deviceAngle)}°`
+                        : t('determining_direction')
+                    }
+                </div>
+
+                <div className="ar-overlay-ui">
+                    {/* Central fixed ring (reticle) */}
+                    <div className="ar-target-ring"></div>
+
+                    {/* Moving Target (Kaaba) */}
+                    {!isOffScreenLeft && !isOffScreenRight && (
+                        <div 
+                            className="ar-qibla-indicator" 
+                            style={{ 
+                                left: `${leftPercent}%`,
+                                opacity: 1,
+                                transform: isAligned ? 'scale(1.2)' : 'scale(1)'
+                            }}
+                        >
+                            <div className={`ar-qibla-icon ${isAligned ? 'glow' : ''}`}>
+                                <KaabaIconSVG />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Guide Arrows */}
+                    {isOffScreenLeft && <div className="ar-guide-arrow left">◄</div>}
+                    {isOffScreenRight && <div className="ar-guide-arrow right">►</div>}
+                </div>
+            </div>
         </div>
-
-        {!isVisible && angleDiff < 0 && <div className="ar-guidance-arrow left">{'>'}</div>}
-      </div>
     );
-  }
-
-  return (
-    <div className="ar-compass-overlay">
-      <video ref={videoRef} className="qibla-video" autoPlay playsInline muted></video>
-      <button onClick={onClose} className="compass-close-button">&times;</button>
-      {renderARContent()}
-    </div>
-  );
 };
 
 
-// --- Container Component (Main Export) ---
+// --- Main Container ---
 interface QiblaCompassContainerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -167,41 +197,37 @@ interface QiblaCompassContainerProps {
 }
 
 const QiblaCompassContainer: React.FC<QiblaCompassContainerProps> = ({ isOpen, onClose, userLocation }) => {
+  const { qiblaDirection, deviceAngle, sensorError } = useQibla(userLocation);
   const [mode, setMode] = useState<'standard' | 'ar'>('standard');
-  const { qiblaDirection, distanceToKaaba, deviceAngle, sensorError } = useQibla(userLocation);
+  const { t } = useTranslation();
   
-  useEffect(() => {
-    if (!isOpen) {
-      const timer = setTimeout(() => setMode('standard'), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) {
-    return null;
-  }
-
-  if (mode === 'ar') {
-    return (
-        <ARCompass
-          onClose={onClose}
-          qiblaDirection={qiblaDirection}
-          distanceToKaaba={distanceToKaaba}
-          deviceAngle={deviceAngle}
-          sensorError={sensorError}
-        />
-    )
-  }
+  if (!isOpen) return null;
 
   return (
     <div className={`compass-container-overlay ${isOpen ? 'open' : ''}`}>
       <button onClick={onClose} className="compass-close-button">&times;</button>
-      <StandardCompass
-          onSwitchToAR={() => setMode('ar')}
-          qiblaDirection={qiblaDirection}
-          deviceAngle={deviceAngle}
-          sensorError={sensorError}
-      />
+      
+      {mode === 'standard' ? (
+          <StandardCompass
+              qiblaDirection={qiblaDirection}
+              deviceAngle={deviceAngle}
+              sensorError={sensorError}
+          />
+      ) : (
+          <ARCompass 
+              qiblaDirection={qiblaDirection}
+              deviceAngle={deviceAngle}
+          />
+      )}
+
+      <div className="ar-overlay-controls">
+          <button 
+            className="compass-mode-switch"
+            onClick={() => setMode(prev => prev === 'standard' ? 'ar' : 'standard')}
+          >
+            {mode === 'standard' ? t('try_ar_compass') : t('switch_to_classic')}
+          </button>
+      </div>
     </div>
   );
 };

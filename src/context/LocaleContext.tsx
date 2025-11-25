@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Locale, LocaleContextType } from '../types';
 
@@ -23,6 +24,9 @@ const ar = {
   "iftar_dua_text": "ذهب الظمأ وابتلت العروق وثبت الأجر إن شاء الله",
   "settings": "الإعدادات",
   "qibla_compass": "بوصلة القبلة",
+  "monthly_calendar": "التقويم الشهري",
+  "enable_dark_mode": "تفعيل الوضع المظلم",
+  "enable_light_mode": "تفعيل الوضع الفاتح",
   "language": "اللغة",
   "location": "الموقع",
   "location_loading": "جاري التحديد...",
@@ -53,12 +57,12 @@ const ar = {
   "qibla": "القبلة",
   "device": "الجهاز",
   "compass_instructions": "أدر جهازك حتى تتطابق أيقونة الكعبة الفيروزية مع المؤشر الأحمر في الأعلى.",
-  "try_ar_compass": "تجربة البوصلة بالواقع المعزز",
-  "determining_direction": "جاري تحديد الاتجاه...",
+  "try_ar_compass": "تجربة الواقع المعزز",
+  "switch_to_classic": "الوضع الكلاسيكي",
+  "ar_permission_denied": "تم رفض إذن الكاميرا. يرجى تفعيله لاستخدام الواقع المعزز.",
   "km": "كم",
   "error_sensor_access": "لا يمكن الوصول إلى مستشعرات الاتجاه. يرجى التأكد من أن جهازك يدعمها وأن لديك الأذونات اللازمة.",
   "error_sensor_support": "هذا الجهاز لا يدعم مستشعرات تحديد الاتجاه اللازمة للبوصلة.",
-  "error_camera_permission": "يرجى السماح بالوصول إلى الكاميرا لاستخدام هذه الميزة.",
   "tasbih_counter": "عداد التسبيح",
   "adhkar": "الأذكار",
   "session_count": "العدد الحالي",
@@ -88,8 +92,8 @@ const ar = {
   "privacy_policy_intro": "نحن نهتم بخصوصيتك. إليك كيفية تعاملنا مع بياناتك:",
   "privacy_policy_location_title": "بيانات الموقع الجغرافي",
   "privacy_policy_location_desc": "نطلب إذن الوصول إلى موقعك الجغرافي لحساب أوقات الصلاة واتجاه القبلة بدقة. لا يتم تخزين هذه البيانات على خوادمنا ولا نشاركها مع أي طرف ثالث.",
-  "privacy_policy_camera_title": "الوصول إلى الكاميرا",
-  "privacy_policy_camera_desc": "نطلب إذن الوصول إلى الكاميرا فقط عند استخدامك لميزة \"بوصلة الواقع المعزز\" (AR). تتم معالجة صور الكاميرا على جهازك مباشرة لعرض اتجاه القبلة ولا يتم تخزينها أو إرسالها إلى أي مكان.",
+  "privacy_policy_camera_title": "الوصول للكاميرا (الواقع المعزز)",
+  "privacy_policy_camera_desc": "نطلب إذن الكاميرا فقط لغرض عرض اتجاه القبلة فوق العالم الحقيقي في وضع الواقع المعزز. لا يتم تسجيل أو تخزين أو إرسال أي صور أو مقاطع فيديو من الكاميرا.",
   "privacy_policy_storage_title": "التخزين المحلي",
   "privacy_policy_storage_desc": "يتم تخزين إعداداتك (مثل طريقة الحساب والموقع المفضل) وبيانات القرآن التي تتصفحها محليًا على جهازك باستخدام مساحة تخزين المتصفح (localStorage) لتحسين تجربتك وتوفير الوصول دون اتصال بالإنترنت. هذه البيانات لا تغادر جهازك أبدًا.",
   "privacy_policy_conclusion": "خصوصيتك هي أولويتنا. نحن ملتزمون بتقليل جمع البيانات إلى الحد الأدنى الضروري لعمل التطبيق.",
@@ -117,7 +121,10 @@ const ar = {
   "adhan_mode_takbeer": "تكبيرات فقط",
   "adhan_mode_silent": "صامت",
   "play_surah": "تشغيل السورة",
-  "stop_recitation": "إيقاف التلاوة"
+  "stop_recitation": "إيقاف التلاوة",
+  "enable_audio_title": "تفعيل صوت الأذان",
+  "enable_audio_desc": "لكي يعمل الأذان والتلاوة الصوتية بشكل صحيح، يحتاج المتصفح إلى إذنك الأولي.",
+  "enable_audio_button": "تفعيل الصوت"
 };
 
 const en = {
@@ -141,6 +148,9 @@ const en = {
   "iftar_dua_text": "The thirst is gone, the veins are moistened, and the reward is confirmed, if Allah wills.",
   "settings": "Settings",
   "qibla_compass": "Qibla Compass",
+  "monthly_calendar": "Monthly Calendar",
+  "enable_dark_mode": "Enable Dark Mode",
+  "enable_light_mode": "Enable Light Mode",
   "language": "Language",
   "location": "Location",
   "location_loading": "Detecting...",
@@ -164,6 +174,11 @@ const en = {
   "iqama_time_setting_title": "Iqama Time After Adhan",
   "minutes": "Minutes",
   "close": "Close",
+  "next_month": "Next Month",
+  "previous_month": "Previous Month",
+  "day": "Day",
+  "hijri": "Hijri",
+  "loading_month_data": "Loading month data...",
   "error_location_not_set": "Location not set. Please enable location services or set it manually.",
   "error_find_times_today": "Could not find prayer times for today.",
   "error_unknown_fetching": "An unknown error occurred while fetching prayer times.",
@@ -172,11 +187,12 @@ const en = {
   "device": "Device",
   "compass_instructions": "Rotate your device until the turquoise Kaaba icon aligns with the red marker at the top.",
   "try_ar_compass": "Try AR Compass",
+  "switch_to_classic": "Classic Mode",
+  "ar_permission_denied": "Camera access denied. Please enable it to use AR features.",
   "determining_direction": "Determining direction...",
   "km": "km",
   "error_sensor_access": "Could not access orientation sensors. Please ensure your device supports them and permissions are granted.",
   "error_sensor_support": "This device does not support the orientation sensors required for the compass.",
-  "error_camera_permission": "Please allow camera access to use this feature.",
   "tasbih_counter": "Tasbih Counter",
   "adhkar": "Adhkar",
   "session_count": "Session",
@@ -206,8 +222,8 @@ const en = {
   "privacy_policy_intro": "We care about your privacy. Here's how we handle your data:",
   "privacy_policy_location_title": "Geolocation Data",
   "privacy_policy_location_desc": "We request access to your location to accurately calculate prayer times and the Qibla direction. This data is not stored on our servers and is not shared with any third parties.",
-  "privacy_policy_camera_title": "Camera Access",
-  "privacy_policy_camera_desc": "We request camera access only when you use the Augmented Reality (AR) Compass feature. The camera feed is processed directly on your device to display the Qibla direction and is never stored or sent anywhere.",
+  "privacy_policy_camera_title": "Camera Access (AR)",
+  "privacy_policy_camera_desc": "We request camera access solely to overlay the Qibla direction on the real world in AR mode. No images or video are recorded, stored, or transmitted.",
   "privacy_policy_storage_title": "Local Storage",
   "privacy_policy_storage_desc": "Your settings (like calculation method and preferred location) and browsed Quran data are stored locally on your device using your browser's storage (localStorage) to improve your experience and provide offline access. This data never leaves your device.",
   "privacy_policy_conclusion": "Your privacy is our priority. We are committed to minimizing data collection to only what is essential for the app to function.",
@@ -235,7 +251,10 @@ const en = {
   "adhan_mode_takbeer": "Takbeer Only",
   "adhan_mode_silent": "Silent",
   "play_surah": "Play Surah",
-  "stop_recitation": "Stop Recitation"
+  "stop_recitation": "Stop Recitation",
+  "enable_audio_title": "Enable Audio",
+  "enable_audio_desc": "To ensure Adhan and recitations play correctly, the browser needs your initial permission.",
+  "enable_audio_button": "Enable Audio"
 };
 
 
