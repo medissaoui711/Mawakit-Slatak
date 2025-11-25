@@ -10,7 +10,7 @@ export const calculationMethods = [
   { id: 1, name_key: 'method_karachi' },
 ];
 
-const GENERIC_TAKBEER_URL = 'https://archive.org/download/takbeer-allahu-akbar-mp3/takbeer-allahu-akbar.mp3';
+const GENERIC_TAKBEER_URL = 'https://archive.org/download/AllahuAkbar_201701/Allahu%20Akbar.mp3';
 
 export const muezzins = [
   { 
@@ -31,7 +31,7 @@ export const muezzins = [
   },
   { 
     id: 'madina', 
-    name: 'Madina Adhan',
+    name: 'Madina Adhan', 
     files: {
       full: 'https://archive.org/download/AdhanAlMadinah/Adhan%20Al-Madinah.mp3',
       takbeer: GENERIC_TAKBEER_URL
